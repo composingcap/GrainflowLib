@@ -31,14 +31,7 @@ namespace Grainflow {
 /// Parameter entity. When used with GfParamSet() different fields can be set
 /// SampleParam() is used to set the value field which is what should be used to read the correct value
 /// </summary>
-	struct GfParam
-	{
-		float base = 0;
-		float random = 0;
-		float offset = 0;
-		float value = 0;
-		GfBufferMode mode = GfBufferMode::normal;
-	};
+
 
 	enum class GfStreamSetType
 	{
@@ -62,6 +55,15 @@ namespace Grainflow {
 		rateBuffer,
 		delayBuffer,
 		windowBuffer
+	};
+
+	struct GfParam
+	{
+		float base = 0;
+		float random = 0;
+		float offset = 0;
+		float value = 0;
+		GfBufferMode mode = GfBufferMode::normal;
 	};
 
 }
