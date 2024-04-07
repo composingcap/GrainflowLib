@@ -4,7 +4,7 @@ To use the library you first need to include `./include` in your project and wri
 
 ## Setting up grainflow for your project
 
-An example of how to implement grainflowLib as a Max external can be found in the examples folder. 
+An example of how to implement grainflowLib as a Max external can be found in the [Grainflow project](https://github.com/composingcap/grainflow/tree/f/external/source/projects/grainflow.voice_tilde).
 
 It should be fairly easy to adapt grainflowlib to any audio library that uses a buffer structure. You need to:
 1. Write an interface for IGrain for you platform
