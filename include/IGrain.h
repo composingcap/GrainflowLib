@@ -31,22 +31,9 @@ namespace Grainflow
 		bool grainEnabled = true;
 		bool bufferDefined = false;
 
-		/// Links to buffers - this can likely use a template argument and would be better
-		T1 *bufferRef = nullptr;
-		T1 *envelopeRef = nullptr;
-		T1 *delayBufRef = nullptr;
-		T1 *rateBufRef = nullptr;
-		T1 *windowBufRef = nullptr;
 
-		GfParam delay;
-		GfParam window;
-		GfParam space;
-		GfParam amplitude;
-		GfParam rate;
-		GfParam glisson;
-		GfParam envelope;
-		GfParam direction;
-		GfParam nEnvelopes;
+
+
 
 	protected:
 		std::random_device rd;
@@ -59,6 +46,23 @@ namespace Grainflow
 		size_t stream = 0;
 		size_t bchan = 0;
 		float density = 1;
+
+		GfParam delay;
+		GfParam window;
+		GfParam space;
+		GfParam amplitude;
+		GfParam rate;
+		GfParam glisson;
+		GfParam envelope;
+		GfParam direction;
+		GfParam nEnvelopes;
+
+		/// Links to buffers - this can likely use a template argument and would be better
+		T1* bufferRef = nullptr;
+		T1* envelopeRef = nullptr;
+		T1* delayBufRef = nullptr;
+		T1* rateBufRef = nullptr;
+		T1* windowBufRef = nullptr;
 
 		IGrain()
 		{
@@ -175,6 +179,11 @@ namespace Grainflow
 			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * index;
 		}
 
+		void SampleParam(GfParam* param) {
+			std::random_device rd;
+			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * index;
+		}
+
 		bool GrainReset(double grainClock, double traversal)
 		{
 			bool grainReset = GetLastClock() > grainClock;
@@ -185,10 +194,10 @@ namespace Grainflow
 			sourceSample = (size_t)((traversal + 10) * bufferFrames - ParamGet(GfParamName::delay)) % bufferFrames;
 			SampleParamBuffer(GFBuffers::rateBuffer, GfParamName::rate);
 			SampleParamBuffer(GFBuffers::windowBuffer, GfParamName::window);
-			SampleParam(GfParamName::space);
-			SampleParam(GfParamName::glisson);
-			SampleParam(GfParamName::envelopePosition);
-			SampleParam(GfParamName::amplitude);
+			SampleParam(&space);
+			SampleParam(&glisson);
+			SampleParam(&envelope);
+			SampleParam(&amplitude);
 			SampleDensity();
 			SampleDirection();
 
