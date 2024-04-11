@@ -94,26 +94,6 @@ namespace Grainflow
 			sampleRateAdjustment = ratio;
 		}
 
-		bool GrainReset(float grainClock, float traversal)
-		{
-			bool grainReset = GetLastClock() > grainClock;
-			if (!grainReset)
-				return grainReset;
-
-			SampleParamBuffer(GFBuffers::rateBuffer, GfParamName::rate);
-			SampleParamBuffer(GFBuffers::windowBuffer, GfParamName::window);
-			SampleParamBuffer(GFBuffers::delayBuffer, GfParamName::delay);
-			sourceSample = (size_t)((traversal + 10) * bufferFrames - ParamGet(GfParamName::delay)) % bufferFrames;
-			SampleParam(GfParamName::space);
-			SampleParam(GfParamName::glisson);
-			SampleParam(GfParamName::envelopePosition);
-			SampleParam(GfParamName::amplitude);
-			SampleDensity();
-			SampleDirection();
-
-			return grainReset;
-		};
-
 		GfParam *ParamGetHandle(GfParamName param)
 		{
 			switch (param)
@@ -191,7 +171,8 @@ namespace Grainflow
 				return grainReset;
 
 			SampleParamBuffer(GFBuffers::delayBuffer, GfParamName::delay);
-			sourceSample = (size_t)((traversal + 10) * bufferFrames - ParamGet(GfParamName::delay)) % bufferFrames;
+			sourceSample = ((traversal) * bufferFrames - delay.value);
+			sourceSample = ((size_t)(sourceSample * 100) % (bufferFrames * 100)) * 0.01f;
 			SampleParamBuffer(GFBuffers::rateBuffer, GfParamName::rate);
 			SampleParamBuffer(GFBuffers::windowBuffer, GfParamName::window);
 			SampleParam(&space);
@@ -258,10 +239,12 @@ namespace Grainflow
 
 		void Increment(float fm, float grainClock)
 		{
-			sourceSample = ((size_t)((sourceSample + fm * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock) * direction.value + bufferFrames) * 100) % (bufferFrames * 100)) * 0.01;
+			sourceSample += fm * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock) * direction.value;
+			sourceSample = ((size_t)(sourceSample * 100) % (bufferFrames * 100)) * 0.01f;
 
 			lastGrainClock = grainClock;
 		}
+
 
 		void StreamSet(int maxGrains, GfStreamSetType mode, int nstreams)
 		{
