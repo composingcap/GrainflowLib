@@ -25,7 +25,7 @@ namespace Grainflow
 	{
 	private:
 		bool reset = false;
-		float lastGrainClock = -999;
+		double lastGrainClock = -999;
 		double sampleRateAdjustment = 1;
 		float sourcePositionNorm = 0;
 		bool grainEnabled = true;
@@ -40,7 +40,7 @@ namespace Grainflow
 		int index = 0;
 
 	public:
-		int bufferFrames = 441000;
+		size_t bufferFrames = 441000;
 		float oneOverBufferFrames = 1;
 		double sourceSample = 0;
 		size_t stream = 0;
@@ -172,7 +172,7 @@ namespace Grainflow
 
 			SampleParamBuffer(GFBuffers::delayBuffer, GfParamName::delay);
 			sourceSample = ((traversal) * bufferFrames - delay.value);
-			sourceSample = ((size_t)(sourceSample * 100) % (bufferFrames * 100)) * 0.01f;
+			sourceSample = GfUtils::mod(sourceSample, bufferFrames);
 			SampleParamBuffer(GFBuffers::rateBuffer, GfParamName::rate);
 			SampleParamBuffer(GFBuffers::windowBuffer, GfParamName::window);
 			SampleParam(&space);
@@ -240,7 +240,7 @@ namespace Grainflow
 		void Increment(float fm, float grainClock)
 		{
 			sourceSample += fm * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock) * direction.value;
-			sourceSample = ((size_t)(sourceSample * 100) % (bufferFrames * 100)) * 0.01f;
+			sourceSample = GfUtils::mod(sourceSample, bufferFrames);
 
 			lastGrainClock = grainClock;
 		}

@@ -1,3 +1,5 @@
+#pragma once 
+#include  <cmath>
 namespace Grainflow {
 	class GfUtils
 	{
@@ -17,5 +19,10 @@ namespace Grainflow {
 		{
 			return pow(2, pitch / 12);
 		}
+
+		static double mod(double a, double b) { return a - b * floor(a / b); }
+
+
+
 	};
 }
