@@ -1,4 +1,4 @@
-
+#pragma once
 namespace Grainflow {
 	/// <summary>
 	/// Available parameters using the GfParam struct
