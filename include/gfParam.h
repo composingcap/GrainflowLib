@@ -27,6 +27,18 @@ namespace Grainflow {
 		value,
 	};
 
+	struct GfValueTable {
+		float delay;
+		float rate;
+		float glisson;
+		float window;
+		float amplitude;
+		float space;
+		float envelopePosition;
+		float direction;
+		int density;
+	};
+
 	/// <summary>
 /// Parameter entity. When used with GfParamSet() different fields can be set
 /// SampleParam() is used to set the value field which is what should be used to read the correct value

@@ -10,9 +10,6 @@
 /// </summary>
 namespace Grainflow
 {
-
-
-
 	/// <summary>
 	/// An interface that represents a grainflow grain.
 	/// To implement a grain, a valid interface needs to implement:
@@ -30,7 +27,7 @@ namespace Grainflow
 		float sourcePositionNorm = 0;
 		bool grainEnabled = true;
 		bool bufferDefined = false;
-
+		GfValueTable valueTable[2];
 
 
 
@@ -164,25 +161,56 @@ namespace Grainflow
 			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * index;
 		}
 
-		bool GrainReset(double grainClock, double traversal)
+		GfValueTable* GrainReset(double* grainClock, double* traversal, double* grainState, const int size)
 		{
-			bool grainReset = GetLastClock() > grainClock;
-			if (!grainReset)
-				return grainReset;
+			for (int i = 0; i < 2; i++) {
+				valueTable[i].delay = delay.value;
+				valueTable[i].rate = rate.value;
+				valueTable[i].glisson = glisson.value;
+				valueTable[i].window = window.value;
+				valueTable[i].amplitude = amplitude.value;
+				valueTable[i].space = space.value;
+				valueTable[i].envelopePosition = envelope.value;
+				valueTable[i].direction = direction.value;
+				valueTable[i].density = density;
+			}
+			bool grainReset = GetLastClock() > grainClock[0];
+			bool zeroCross = false;
+			grainState[0] = !grainReset;
+			int resetPosition = 0;
+			for (int i = 1; i < size; i++) {
+				zeroCross = grainClock[i - 1] > grainClock[i];
+				grainState[i] = !zeroCross;
+				resetPosition = resetPosition * !(grainReset && zeroCross) + i * (grainReset && zeroCross);
+				grainReset = grainReset || zeroCross;
+			}
+			lastGrainClock = grainClock[size - 1];
+			if (!grainReset) return valueTable;
 
-			SampleParamBuffer(GFBuffers::delayBuffer, GfParamName::delay);
-			sourceSample = ((traversal) * bufferFrames - delay.value);
-			sourceSample = GfUtils::mod(sourceSample, bufferFrames);
-			SampleParamBuffer(GFBuffers::rateBuffer, GfParamName::rate);
-			SampleParamBuffer(GFBuffers::windowBuffer, GfParamName::window);
-			SampleParam(&space);
-			SampleParam(&glisson);
-			SampleParam(&envelope);
-			SampleParam(&amplitude);
-			SampleDensity();
-			SampleDirection();
+				SampleParamBuffer(GFBuffers::delayBuffer, GfParamName::delay);
+				sourceSample = ((traversal[resetPosition]) * bufferFrames - delay.value-1);
+				sourceSample = GfUtils::mod(sourceSample, bufferFrames);
+				SampleParamBuffer(GFBuffers::rateBuffer, GfParamName::rate);
+				SampleParamBuffer(GFBuffers::windowBuffer, GfParamName::window);
+				SampleParam(&space);
+				SampleParam(&glisson);
+				SampleParam(&envelope);
+				SampleParam(&amplitude);
+				SampleDensity();
+				SampleDirection();
 
-			return grainReset;
+				int i = 1;
+				valueTable[i].delay = delay.value;
+				valueTable[i].rate = rate.value;
+				valueTable[i].glisson = glisson.value;
+				valueTable[i].window = window.value;
+				valueTable[i].amplitude = amplitude.value;
+				valueTable[i].space = space.value;
+				valueTable[i].envelopePosition = envelope.value;
+				valueTable[i].direction = direction.value;
+				valueTable[i].density = density;
+
+				return valueTable;
 		}
 
 		void SetBuffer(GFBuffers bufferType, T1 *buffer)
@@ -237,12 +265,13 @@ namespace Grainflow
 			grainEnabled = density >= (rd() % 10000) * 0.0001f;
 		}
 
-		void Increment(float fm, float grainClock)
+		void Increment(double* fm, double* grainClock, double* samplePositions, const int size)
 		{
-			sourceSample += fm * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock) * direction.value;
-			sourceSample = GfUtils::mod(sourceSample, bufferFrames);
-
-			lastGrainClock = grainClock;
+			for (int i = 0; i < size; i++) {
+				sourceSample += fm[i] * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
+				sourceSample = GfUtils::mod(sourceSample, bufferFrames);
+				samplePositions[i] = sourceSample;
+			}
 		}
 
 
