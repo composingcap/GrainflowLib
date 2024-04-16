@@ -70,11 +70,11 @@ namespace Grainflow
 		/// @brief The function implements reading an external buffer for select parameters when the feature is enabled.
 		/// @param bufferType
 		/// @param paramName
-		virtual void SampleParamBuffer(GFBuffers bufferType, GfParamName paramName) = 0;
+		inline virtual void SampleParamBuffer(GFBuffers bufferType, GfParamName paramName) = 0;
 
-		virtual void SampleBuffer(T2 &sampleLock, double* samples, double* positions, const int size) = 0;
+        inline virtual void SampleBuffer(T2 &sampleLock, double* samples, double* positions, const int size) = 0;
 
-		virtual void SampleEnvelope(T2 &sampleLock, double* samples, double* grainClock, const int size) = 0;
+        inline virtual void SampleEnvelope(T2 &sampleLock, double* samples, double* grainClock, const int size) = 0;
 
 		float GetLastClock() { return lastGrainClock; }
 
@@ -161,7 +161,7 @@ namespace Grainflow
 			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * index;
 		}
 
-		GfValueTable* GrainReset(double* grainClock, double* traversal, double* grainState, const int size)
+        inline GfValueTable* GrainReset(double* grainClock, double* traversal, double* grainState, const int size)
 		{
 			for (int i = 0; i < 2; i++) {
 				valueTable[i].delay = delay.value;
@@ -265,7 +265,7 @@ namespace Grainflow
 			grainEnabled = density >= (rd() % 10000) * 0.0001f;
 		}
 
-		void Increment(double* fm, double* grainClock, double* samplePositions, const int size)
+        inline void Increment(double* fm, double* grainClock, double* samplePositions, const int size)
 		{
 			for (int i = 0; i < size; i++) {
 				sourceSample += fm[i] * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
