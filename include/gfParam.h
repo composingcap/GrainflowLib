@@ -14,6 +14,8 @@ namespace Grainflow {
 		envelopePosition,
 		nEnvelopes,
 		direction,
+		startPoint,
+		stopPoint,
 	};
 	/// <summary>
 	/// Different parameter types using in the GfParam Struct

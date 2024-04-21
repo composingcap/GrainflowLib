@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <random>
+#include <algorithm>
 #include "gfParam.h"
 #include "gfUtils.h"
 
@@ -29,9 +30,6 @@ namespace Grainflow
 		bool bufferDefined = false;
 		GfValueTable valueTable[2];
 
-
-
-
 	protected:
 		std::random_device rd;
 		int index = 0;
@@ -54,6 +52,9 @@ namespace Grainflow
 		GfParam direction;
 		GfParam nEnvelopes;
 
+		GfParam startPoint;
+		GfParam stopPoint;
+
 		/// Links to buffers - this can likely use a template argument and would be better
 		T1* bufferRef = nullptr;
 		T1* envelopeRef = nullptr;
@@ -66,6 +67,8 @@ namespace Grainflow
 			rate.base = 1;
 			amplitude.base = 1;
 			direction.base = 1;
+			stopPoint.base = 1;
+			stopPoint.value = 1;
 		}
 		/// @brief The function implements reading an external buffer for select parameters when the feature is enabled.
 		/// @param bufferType
@@ -113,6 +116,10 @@ namespace Grainflow
 				return &nEnvelopes;
 			case (GfParamName::direction):
 				return &direction;
+			case (GfParamName::stopPoint):
+				return &stopPoint;
+			case (GfParamName::startPoint):
+				return &startPoint;
 			}
 
 			return nullptr;
@@ -196,8 +203,12 @@ namespace Grainflow
 				SampleParam(&glisson);
 				SampleParam(&envelope);
 				SampleParam(&amplitude);
+				SampleParam(&startPoint);
+				SampleParam(&stopPoint);
+
 				SampleDensity();
 				SampleDirection();
+
 
 				int i = 1;
 				valueTable[i].delay = delay.value;
@@ -250,7 +261,6 @@ namespace Grainflow
 				return envelopeRef;
 			case (GFBuffers::rateBuffer):
 				return rateBufRef;
-				;
 			case (GFBuffers::delayBuffer):
 				return delayBufRef;
 			case (GFBuffers::windowBuffer):
@@ -267,9 +277,11 @@ namespace Grainflow
 
         inline void Increment(double* fm, double* grainClock, double* samplePositions, const int size)
 		{
+			float start = std::min((double)bufferFrames * startPoint.value, (double)bufferFrames-1);
+			float end = std::min((double)bufferFrames * stopPoint.value, (double)bufferFrames - 1);
 			for (int i = 0; i < size; i++) {
 				sourceSample += fm[i] * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
-				sourceSample = GfUtils::mod(sourceSample, bufferFrames);
+				sourceSample = GfUtils::mod(sourceSample, start, end);
 				samplePositions[i] = sourceSample;
 			}
 		}
