@@ -51,6 +51,7 @@ namespace Grainflow
 		GfParam envelope;
 		GfParam direction;
 		GfParam nEnvelopes;
+		GfParam rateQuantizeSemi;
 
 		GfParam startPoint;
 		GfParam stopPoint;
@@ -69,6 +70,7 @@ namespace Grainflow
 			direction.base = 1;
 			stopPoint.base = 1;
 			stopPoint.value = 1;
+			rateQuantizeSemi.value = 1;
 		}
 		/// @brief The function implements reading an external buffer for select parameters when the feature is enabled.
 		/// @param bufferType
@@ -120,6 +122,8 @@ namespace Grainflow
 				return &stopPoint;
 			case (GfParamName::startPoint):
 				return &startPoint;
+			case (GfParamName::rateQuantizeSemi):
+				return &rateQuantizeSemi;
 			}
 
 			return nullptr;
@@ -198,6 +202,7 @@ namespace Grainflow
 				sourceSample = ((traversal[resetPosition]) * bufferFrames - delay.value-1);
 				sourceSample = GfUtils::mod(sourceSample, bufferFrames);
 				SampleParamBuffer(GFBuffers::rateBuffer, GfParamName::rate);
+				rate.value = 1 + GfUtils::round(rate.value - 1, 1-rateQuantizeSemi.value);
 				SampleParamBuffer(GFBuffers::windowBuffer, GfParamName::window);
 				SampleParam(&space);
 				SampleParam(&glisson);

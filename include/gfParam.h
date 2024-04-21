@@ -16,6 +16,7 @@ namespace Grainflow {
 		direction,
 		startPoint,
 		stopPoint,
+		rateQuantizeSemi,
 	};
 	/// <summary>
 	/// Different parameter types using in the GfParam Struct

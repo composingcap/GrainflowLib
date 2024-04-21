@@ -1,6 +1,7 @@
 #pragma once 
 #include  <cmath>
 #pragma intrinsic(fabs)
+#pragma intrinsic(floor)
 
 namespace Grainflow {
 	class GfUtils
@@ -25,6 +26,12 @@ namespace Grainflow {
 		static inline double mod(double a, double b) { return a - b * floor(a / b); }
 
 		static inline double mod(double num, double min, double max) {return (mod(num - min, max - min) + min);}
+
+		static inline double round(double val, double step){ 
+			step = fabs(step);
+			return step * std::floor(val / (step+(step==0)*0.01f)+0.49f) * (step > 0) + val * (step <= 0);
+
+		}
 
 	};
 }
