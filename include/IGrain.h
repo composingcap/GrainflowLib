@@ -183,7 +183,7 @@ namespace Grainflow
 				valueTable[i].space = space.value;
 				valueTable[i].envelopePosition = envelope.value;
 				valueTable[i].direction = direction.value;
-				valueTable[i].density = density;
+				valueTable[i].density = grainEnabled;
 			}
 			bool grainReset = GetLastClock() > grainClock[0];
 			bool zeroCross = false;
@@ -224,7 +224,7 @@ namespace Grainflow
 				valueTable[i].space = space.value;
 				valueTable[i].envelopePosition = envelope.value;
 				valueTable[i].direction = direction.value;
-				valueTable[i].density = density;
+				valueTable[i].density = grainEnabled;
 
 				return valueTable;
 		}
