@@ -53,6 +53,7 @@ namespace Grainflow
 		GfParam direction;
 		GfParam nEnvelopes;
 		GfParam rateQuantizeSemi;
+		GfParam loopMode;
 
 		GfParam startPoint;
 		GfParam stopPoint;
@@ -125,7 +126,9 @@ namespace Grainflow
 				return &startPoint;
 			case (GfParamName::rateQuantizeSemi):
 				return &rateQuantizeSemi;
-			}
+			case (GfParamName::loopMode):
+				return &loopMode;
+			}	
 
 			return nullptr;
 		}
@@ -324,10 +327,11 @@ namespace Grainflow
 				samplePositions[i] = lastPosition + sampleDeltaTemp[i-1];
 				lastPosition = samplePositions[i];
 			}
+			int fold = loopMode.base > 1.1f ? 1:0;
+			sourceSample = samplePositions[size - 1] + sampleDeltaTemp[size - 1];
 			for (int i = 0; i < size; i++) {
-				samplePositions[i] = GfUtils::mod(samplePositions[i], start, end);
+				samplePositions[i] = GfUtils::pong(samplePositions[i], start, end, fold);
 			}
-			sourceSample = samplePositions[size - 1] + sampleDeltaTemp[size-1];
 		}
 
 
