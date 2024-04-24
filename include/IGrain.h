@@ -2,6 +2,7 @@
 #include <memory>
 #include <random>
 #include <algorithm>
+#include <numeric>
 #include "gfParam.h"
 #include "gfUtils.h"
 
@@ -77,9 +78,9 @@ namespace Grainflow
 		/// @param paramName
 		inline virtual void SampleParamBuffer(GFBuffers bufferType, GfParamName paramName) = 0;
 
-        inline virtual void SampleBuffer(T2 &sampleLock, double* samples, double* positions, const int size) = 0;
+        inline virtual void SampleBuffer(const float* buffer, const int frames, const int channels, double* __restrict samples, double* positions, const int size) = 0;
 
-        inline virtual void SampleEnvelope(T2 &sampleLock, double* samples, double* grainClock, const int size) = 0;
+        inline virtual void SampleEnvelope(const float* buffer, int frames, double* __restrict samples, double* grainClock, const int size) = 0;
 
 		float GetLastClock() { return lastGrainClock; }
 
@@ -172,7 +173,7 @@ namespace Grainflow
 			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * index;
 		}
 
-        inline GfValueTable* GrainReset(double* grainClock, double* traversal, double* grainState, const int size)
+        inline GfValueTable* GrainReset(double* grainClock, const double* traversal, double* grainState, const int size)
 		{
 			for (int i = 0; i < 2; i++) {
 				valueTable[i].delay = delay.value;
@@ -274,21 +275,59 @@ namespace Grainflow
 			return nullptr;
 		}
 
-		void SampleDensity()
+		inline void SampleDensity()
 		{
 			std::random_device rd;
 			grainEnabled = density >= (rd() % 10000) * 0.0001f;
 		}
 
-        inline void Increment(double* fm, double* grainClock, double* samplePositions, const int size)
+		inline void ExpandValueTable(const GfValueTable* valueFrames, const double* grainState, float* __restrict amplitudes, float* __restrict densities, const int size) {
+			for (int j = 0; j < size; j++) {
+				amplitudes[j] = valueFrames[(int)grainState[j]].amplitude;
+				densities[j] = valueFrames[(int)grainState[j]].density;
+			}
+		}
+		inline void ProccessGrainClock(const double* grainClock, double* __restrict grainProgress, const float windowVal, const float windowPortion, const int size) {
+			for (int j = 0; j < size; j++) {
+				double sample = grainClock[j] + windowVal;
+				sample -= floor(sample);
+				sample *= windowPortion;
+				sample = std::min(sample, 1.0);
+				grainProgress[j] = sample;
+			}
+		}
+		inline void OuputBlock(double* __restrict sampleIds, float* __restrict amplitudes, float* __restrict densities, float oneOverBufferFrames, int stream, int chan, const double* inputAmp,
+			double* __restrict grainPlayhead, double* __restrict grainAmp, double* __restrict grainEnvelope,
+			double* __restrict grainOutput, double* __restrict grainStreamChannel, double* __restrict grainBufferChannel, const int size) {
+			for (int j = 0; j < size; j++) {
+				float density = densities[j];;
+				float amplitude = amplitudes[j];
+				grainPlayhead[j] = sampleIds[j] * oneOverBufferFrames * density;
+				grainAmp[j] = (1 - inputAmp[j]) * amplitude * density;
+				grainEnvelope[j] *= density;
+				grainOutput[j] *= grainAmp[j] * 0.5 * grainEnvelope[j];
+				grainStreamChannel[j] = stream + 1;
+				grainBufferChannel[j] = chan + 1;
+			}
+		}
+
+        inline void Increment(const double* fm, const double* grainClock, double* __restrict samplePositions, double* __restrict sampleDeltaTemp, const int size)
 		{
 			float start = std::min((double)bufferFrames * startPoint.value, (double)bufferFrames-1);
 			float end = std::min((double)bufferFrames * stopPoint.value, (double)bufferFrames - 1);
 			for (int i = 0; i < size; i++) {
-				sourceSample += fm[i] * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
-				sourceSample = GfUtils::mod(sourceSample, start, end);
-				samplePositions[i] = sourceSample;
+				sampleDeltaTemp[i] = fm[i] * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
 			}
+			samplePositions[0] = sourceSample;
+			double lastPosition = sourceSample;
+			for (int i = 1; i < size; i++) {
+				samplePositions[i] = lastPosition + sampleDeltaTemp[i-1];
+				lastPosition = samplePositions[i];
+			}
+			for (int i = 0; i < size; i++) {
+				samplePositions[i] = GfUtils::mod(samplePositions[i], start, end);
+			}
+			sourceSample = samplePositions[size - 1] + sampleDeltaTemp[size-1];
 		}
 
 
