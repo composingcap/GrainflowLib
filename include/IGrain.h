@@ -36,7 +36,7 @@ namespace Grainflow
 
 	protected:
 		std::random_device rd;
-		int index = 0;
+		int g = 0;
 		size_t chan;
 		double sampleRateAdjustment = 1;
 		size_t bufferFrames = 441000;
@@ -94,6 +94,7 @@ namespace Grainflow
 
 		inline void Proccess(gfIoConfig ioConfig) {
 
+			if (ioConfig.blockSize < BLOCKSIZE) return;
 
 			UpdateBufferInfo(bufferRef, ioConfig);
 
@@ -102,7 +103,6 @@ namespace Grainflow
 			if (ioConfig.in[ioConfig.grainClock][0] == ioConfig.in[ioConfig.grainClock][1])
 				return;
 			float windowVal = window.value;
-			int g = index;
 
 			for (int i = 0; i < ioConfig.blockSize / BLOCKSIZE; i++)
 			{
@@ -132,20 +132,7 @@ namespace Grainflow
 			}
 		}
 
-		float GetLastClock() { return lastGrainClock; }
-
-		void SetIndex(int index) { this->index = index; }
-
-		void SetBufferFrames(int frames)
-		{
-			bufferFrames = frames;
-			oneOverBufferFrames = 1.0f / bufferFrames;
-		}
-
-		void SetSampleRateAdjustment(float ratio)
-		{
-			sampleRateAdjustment = ratio;
-		}
+		void SetIndex(int g) { this->g = g; }
 
 		GfParam *ParamGetHandle(GfParamName param)
 		{
@@ -217,12 +204,12 @@ namespace Grainflow
 		{
 			auto param = ParamGetHandle(paramName);
 			std::random_device rd;
-			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * index;
+			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * g;
 		}
 
 		void SampleParam(GfParam* param) {
 			std::random_device rd;
-			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * index;
+			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * g;
 		}
 
         inline GfValueTable* GrainReset(double* grainClock, const double* traversal, double* grainState, const int size)
@@ -238,7 +225,7 @@ namespace Grainflow
 				valueTable[i].direction = direction.value;
 				valueTable[i].density = grainEnabled;
 			}
-			bool grainReset = GetLastClock() > grainClock[0];
+			bool grainReset = lastGrainClock > grainClock[0];
 			bool zeroCross = false;
 			grainState[0] = !grainReset;
 			int resetPosition = 0;
@@ -303,11 +290,6 @@ namespace Grainflow
 				break;
 			};
 		};
-
-		void SetSampleRateAdjustment(float gloabalSampleRate, float bufferSampleRate)
-		{
-			sampleRateAdjustment = bufferSampleRate / gloabalSampleRate;
-		}
 
 		T1 *GetBuffer(GFBuffers bufferType)
 		{
@@ -389,10 +371,10 @@ namespace Grainflow
 			switch (mode)
 			{
 			case (GfStreamSetType::automaticStreams):
-				stream = index % nstreams;
+				stream = g % nstreams;
 				break;
 			case (GfStreamSetType::perStreams):
-				stream = index / nstreams;
+				stream = g / nstreams;
 				break;
 			case (GfStreamSetType::randomStreams):
 				std::random_device rd;
