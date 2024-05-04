@@ -82,4 +82,31 @@ namespace Grainflow {
 		GfBufferMode mode = GfBufferMode::normal;
 	};
 
+
+	struct gfIoConfig
+	{
+		double** in;
+		double** out;
+		int grainClockCh = 0;
+		int traversalPhasorCh;
+		int fmCh;
+		int amCh;
+		int grainOutput = 0;
+		int grainState;
+		int grainProgress;
+		int grainPlayhead;
+		int grainAmp;
+		int grainEnvelope;
+		int grainBufferChannel;
+		int grainStreamChannel;
+		int grainClock;
+		int traversalPhasor;
+		int fm;
+		int am;
+		bool livemode;
+		int blockSize;
+		int samplerate;
+	};
+
+
 }

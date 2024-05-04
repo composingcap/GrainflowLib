@@ -19,7 +19,7 @@ namespace Grainflow
 	/// -SampleEnvelope
 	/// -SampleParamBuffer
 	/// </summary>
-	template <typename T1, typename T2>
+	template <typename T1, typename T2, size_t BLOCKSIZE>
 	class IGrain
 	{
 	private:
@@ -30,7 +30,10 @@ namespace Grainflow
 		bool grainEnabled = true;
 		bool bufferDefined = false;
 		GfValueTable valueTable[2];
-
+		double sampleIdTemp[BLOCKSIZE];
+		float densityTemp[BLOCKSIZE];
+		float ampTemp[BLOCKSIZE];
+		double tempDouble[BLOCKSIZE];
 	protected:
 		std::random_device rd;
 		int index = 0;
@@ -82,6 +85,48 @@ namespace Grainflow
         inline virtual void SampleBuffer(const float* buffer, const int frames, const int channels, double* __restrict samples, double* positions, const int size) = 0;
 
         inline virtual void SampleEnvelope(const float* buffer, int frames, double* __restrict samples, double* grainClock, const int size) = 0;
+
+		inline void Proccess(gfIoConfig ioConfig, float* bufferSamples, float* envelopeSamples, int bufferFrames, int bufferChans, int bufferSr, int envelopeFrames) {
+
+
+			SetSampleRateAdjustment(ioConfig.livemode ? 1 : bufferSr / ioConfig.samplerate);
+			SetBufferFrames(bufferFrames);
+
+			size_t chan = (bchan) % bufferChans;
+			float windowPortion = 1 / std::clamp(1 - space.value, 0.0001f, 1.0f);
+			// Check grain clock to make sure it is moving
+			if (ioConfig.in[ioConfig.grainClock][0] == ioConfig.in[ioConfig.grainClock][1])
+				return;
+			float windowVal = window.value;
+			int g = index;
+
+			for (int i = 0; i < ioConfig.blockSize / BLOCKSIZE; i++)
+			{
+				int block = i * BLOCKSIZE;
+				auto amp = amplitude.value;
+				double* grainClock = &ioConfig.in[ioConfig.grainClock][block];
+				double* inputAmp = &ioConfig.in[ioConfig.am][block];
+				double* fm = &ioConfig.in[ioConfig.fm][block];
+				double* traversalPhasor = &ioConfig.in[ioConfig.traversalPhasor][block];
+
+				double* grainProgress = &ioConfig.out[g + ioConfig.grainProgress][block];
+				double* grainState = &ioConfig.out[g + ioConfig.grainState][block];
+				double* grainPlayhead = &ioConfig.out[g + ioConfig.grainPlayhead][block];
+				double* grainAmp = &ioConfig.out[g + ioConfig.grainAmp][block];
+				double* grainEnvelope = &ioConfig.out[g + ioConfig.grainEnvelope][block];
+				double* grainOutput = &ioConfig.out[g + ioConfig.grainOutput][block];
+				double* grainChannels = &ioConfig.out[g + ioConfig.grainBufferChannel][block];
+				double* grainStreams = &ioConfig.out[g + ioConfig.grainStreamChannel][block];
+
+				ProccessGrainClock(grainClock, grainProgress, windowVal, windowPortion, BLOCKSIZE);
+				auto valueFrames = GrainReset(grainProgress, traversalPhasor, grainState, BLOCKSIZE);
+				Increment(fm, grainProgress, sampleIdTemp, tempDouble, BLOCKSIZE);
+				SampleEnvelope(envelopeSamples, envelopeFrames, grainEnvelope, grainProgress, BLOCKSIZE);
+				SampleBuffer(bufferSamples, bufferFrames, bufferChans, grainOutput, sampleIdTemp, BLOCKSIZE);
+				ExpandValueTable(valueFrames, grainState, ampTemp, densityTemp, BLOCKSIZE);
+				OuputBlock(sampleIdTemp, ampTemp, densityTemp, oneOverBufferFrames, stream, chan, inputAmp, grainPlayhead, grainAmp, grainEnvelope, grainOutput, grainChannels, grainStreams, BLOCKSIZE);
+			}
+		}
 
 		float GetLastClock() { return lastGrainClock; }
 
