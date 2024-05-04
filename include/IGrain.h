@@ -25,7 +25,6 @@ namespace Grainflow
 	private:
 		bool reset = false;
 		double lastGrainClock = -999;
-		double sampleRateAdjustment = 1;
 		float sourcePositionNorm = 0;
 		bool grainEnabled = true;
 		bool bufferDefined = false;
@@ -34,13 +33,18 @@ namespace Grainflow
 		float densityTemp[BLOCKSIZE];
 		float ampTemp[BLOCKSIZE];
 		double tempDouble[BLOCKSIZE];
+
 	protected:
 		std::random_device rd;
 		int index = 0;
-
-	public:
+		size_t chan;
+		double sampleRateAdjustment = 1;
 		size_t bufferFrames = 441000;
 		float oneOverBufferFrames = 1;
+
+
+	public:
+
 		double sourceSample = 0;
 		size_t stream = 0;
 		size_t bchan = 0;
@@ -82,17 +86,17 @@ namespace Grainflow
 		/// @param paramName
 		inline virtual void SampleParamBuffer(GFBuffers bufferType, GfParamName paramName) = 0;
 
-        inline virtual void SampleBuffer(const float* buffer, const int frames, const int channels, double* __restrict samples, double* positions, const int size) = 0;
+        inline virtual void SampleBuffer(T1* ref, double* __restrict samples, double* positions, const int size) = 0;
 
-        inline virtual void SampleEnvelope(const float* buffer, int frames, double* __restrict samples, double* grainClock, const int size) = 0;
+        inline virtual void SampleEnvelope(T1* ref, double* __restrict samples, double* grainClock, const int size) = 0;
 
-		inline void Proccess(gfIoConfig ioConfig, float* bufferSamples, float* envelopeSamples, int bufferFrames, int bufferChans, int bufferSr, int envelopeFrames) {
+		inline virtual void UpdateBufferInfo(T1* ref, gfIoConfig ioConfig) = 0;
+
+		inline void Proccess(gfIoConfig ioConfig) {
 
 
-			SetSampleRateAdjustment(ioConfig.livemode ? 1 : bufferSr / ioConfig.samplerate);
-			SetBufferFrames(bufferFrames);
+			UpdateBufferInfo(bufferRef, ioConfig);
 
-			size_t chan = (bchan) % bufferChans;
 			float windowPortion = 1 / std::clamp(1 - space.value, 0.0001f, 1.0f);
 			// Check grain clock to make sure it is moving
 			if (ioConfig.in[ioConfig.grainClock][0] == ioConfig.in[ioConfig.grainClock][1])
@@ -121,8 +125,8 @@ namespace Grainflow
 				ProccessGrainClock(grainClock, grainProgress, windowVal, windowPortion, BLOCKSIZE);
 				auto valueFrames = GrainReset(grainProgress, traversalPhasor, grainState, BLOCKSIZE);
 				Increment(fm, grainProgress, sampleIdTemp, tempDouble, BLOCKSIZE);
-				SampleEnvelope(envelopeSamples, envelopeFrames, grainEnvelope, grainProgress, BLOCKSIZE);
-				SampleBuffer(bufferSamples, bufferFrames, bufferChans, grainOutput, sampleIdTemp, BLOCKSIZE);
+				SampleEnvelope(envelopeRef, grainEnvelope, grainProgress, BLOCKSIZE);
+				SampleBuffer(bufferRef, grainOutput, sampleIdTemp, BLOCKSIZE);
 				ExpandValueTable(valueFrames, grainState, ampTemp, densityTemp, BLOCKSIZE);
 				OuputBlock(sampleIdTemp, ampTemp, densityTemp, oneOverBufferFrames, stream, chan, inputAmp, grainPlayhead, grainAmp, grainEnvelope, grainOutput, grainChannels, grainStreams, BLOCKSIZE);
 			}
