@@ -37,17 +37,16 @@ namespace Grainflow
 	protected:
 		std::random_device rd;
 		int g = 0;
-		size_t chan;
 		double sampleRateAdjustment = 1;
 		size_t bufferFrames = 441000;
 		float oneOverBufferFrames = 1;
+		int nchannels = 1;
 
 
 	public:
 
 		double sourceSample = 0;
 		size_t stream = 0;
-		size_t bchan = 0;
 		float density = 1;
 
 		GfParam delay;
@@ -64,6 +63,8 @@ namespace Grainflow
 
 		GfParam startPoint;
 		GfParam stopPoint;
+
+		GfParam channel;
 
 		/// Links to buffers - this can likely use a template argument and would be better
 		T1* bufferRef = nullptr;
@@ -128,7 +129,7 @@ namespace Grainflow
 				SampleEnvelope(envelopeRef, grainEnvelope, grainProgress, BLOCKSIZE);
 				SampleBuffer(bufferRef, grainOutput, sampleIdTemp, BLOCKSIZE);
 				ExpandValueTable(valueFrames, grainState, ampTemp, densityTemp, BLOCKSIZE);
-				OuputBlock(sampleIdTemp, ampTemp, densityTemp, oneOverBufferFrames, stream, chan, inputAmp, grainPlayhead, grainAmp, grainEnvelope, grainOutput, grainChannels, grainStreams, BLOCKSIZE);
+				OuputBlock(sampleIdTemp, ampTemp, densityTemp, oneOverBufferFrames, stream, inputAmp, grainPlayhead, grainAmp, grainEnvelope, grainOutput, grainChannels, grainStreams, BLOCKSIZE);
 			}
 		}
 
@@ -164,6 +165,8 @@ namespace Grainflow
 				return &rateQuantizeSemi;
 			case (GfParamName::loopMode):
 				return &loopMode;
+			case (GfParamName::channel):
+				return &channel;
 			}	
 
 			return nullptr;
@@ -212,6 +215,11 @@ namespace Grainflow
 			param->value = abs((rd() % 10000) * 0.0001f) * (param->random) + param->base + param->offset * g;
 		}
 
+		void SampleNormalized(GfParam* param, float range) {
+			std::random_device rd;
+			param->value = GfUtils::mod((abs((rd() % 10000) * 0.0001f) * (param->random) + +param->offset) * range + param->base, range);
+		}
+
         inline GfValueTable* GrainReset(double* grainClock, const double* traversal, double* grainState, const int size)
 		{
 			for (int i = 0; i < 2; i++) {
@@ -250,7 +258,7 @@ namespace Grainflow
 				SampleParam(&amplitude);
 				SampleParam(&startPoint);
 				SampleParam(&stopPoint);
-
+				SampleNormalized(&channel, nchannels);
 				SampleDensity();
 				SampleDirection();
 
@@ -330,7 +338,7 @@ namespace Grainflow
 				grainProgress[j] = sample;
 			}
 		}
-		inline void OuputBlock(double* __restrict sampleIds, float* __restrict amplitudes, float* __restrict densities, float oneOverBufferFrames, int stream, int chan, const double* inputAmp,
+		inline void OuputBlock(double* __restrict sampleIds, float* __restrict amplitudes, float* __restrict densities, float oneOverBufferFrames, int stream, const double* inputAmp,
 			double* __restrict grainPlayhead, double* __restrict grainAmp, double* __restrict grainEnvelope,
 			double* __restrict grainOutput, double* __restrict grainStreamChannel, double* __restrict grainBufferChannel, const int size) {
 			for (int j = 0; j < size; j++) {
@@ -341,7 +349,7 @@ namespace Grainflow
 				grainEnvelope[j] *= density;
 				grainOutput[j] *= grainAmp[j] * 0.5 * grainEnvelope[j];
 				grainStreamChannel[j] = stream + 1;
-				grainBufferChannel[j] = chan + 1;
+				grainBufferChannel[j] = (int)channel.value + 1;
 			}
 		}
 
@@ -402,6 +410,8 @@ namespace Grainflow
 			}
 		}
 	};
+
+
 
 	
 }

@@ -18,6 +18,7 @@ namespace Grainflow {
 		stopPoint,
 		rateQuantizeSemi,
 		loopMode,
+		channel
 	};
 	/// <summary>
 	/// Different parameter types using in the GfParam Struct
