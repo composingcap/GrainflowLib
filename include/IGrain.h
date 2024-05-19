@@ -320,7 +320,7 @@ namespace Grainflow
 		inline void SampleDensity()
 		{
 			std::random_device rd;
-			grainEnabled = density >= (rd() % 10000) * 0.0001f;
+			grainEnabled = density > (rd() % 10000) * 0.0001f;
 		}
 
 		inline void ExpandValueTable(const GfValueTable* valueFrames, const double* grainState, float* __restrict amplitudes, float* __restrict densities, const int size) {
