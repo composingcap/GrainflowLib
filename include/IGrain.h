@@ -365,7 +365,7 @@ constexpr float HanningEnvelope[1024] = {
 			float start = std::min((double)bufferFrames * startPoint.value, (double)bufferFrames-1);
 			float end = std::min((double)bufferFrames * stopPoint.value, (double)bufferFrames - 1);
 			for (int i = 0; i < size; i++) {
-				sampleDeltaTemp[i] = fm[i] * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
+				sampleDeltaTemp[i] = std::pow(2,fm[i]/12) * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
 			}
 			samplePositions[0] = sourceSample;
 			double lastPosition = sourceSample;
