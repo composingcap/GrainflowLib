@@ -23,6 +23,19 @@ namespace Grainflow {
 			return pow(2, pitch / 12);
 		}
 
+		static inline float RateToPitch(float rate)
+		{
+			return round(12*log2(rate),1e-4);
+		}
+
+		static inline float RateOffsetToPitchOffset(float rateOffset) {
+			return RateToPitch(rateOffset+1);
+		}
+
+		static inline float PitchOffsetToRateOffset(float pitchOffset) {
+			return PitchToRate(pitchOffset)-1;
+		}
+
 		static inline double mod(double a, double b) { return a - b * floor(a / b); }
 
 		static inline double mod(double num, double min, double max) {return (mod(num - min, max - min) + min);}
@@ -36,7 +49,12 @@ namespace Grainflow {
 		static inline double round(double val, double step){ 
 			step = fabs(step);
 			return step * std::floor(val / (step+(step==0)*0.01f)+0.49f) * (step > 0) + val * (step <= 0);
+		}
 
+
+		static inline double trunc(double val, double step) {
+			step = fabs(step);
+			return step * std::floor(val / (step + (step == 0) * 0.01f)) * (step > 0) + val * (step <= 0);
 		}
 
 	};
