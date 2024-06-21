@@ -227,7 +227,7 @@ constexpr float HanningEnvelope[1024] = {
 			param->value = GfUtils::mod((abs((rd() % 10000) * 0.0001f) * (param->random) + +param->offset) * range + param->base, range);
 		}
 
-        inline GfValueTable* GrainReset(double* grainClock, const double* traversal, double* grainState, const int size)
+        inline GfValueTable* GrainReset(double* __restrict grainClock, const double* traversal, double* __restrict grainState, const int size)
 		{
 			for (int i = 0; i < 2; i++) {
 				valueTable[i].delay = delay.value;
@@ -330,19 +330,22 @@ constexpr float HanningEnvelope[1024] = {
 			grainEnabled = density > (rd() % 10000) * 0.0001f;
 		}
 
-		inline void ExpandValueTable(const GfValueTable* valueFrames, const double* grainState, float* __restrict amplitudes, float* __restrict densities, const int size) {
+		inline void ExpandValueTable(const  GfValueTable* __restrict valueFrames, const double* __restrict grainState, float* __restrict amplitudes, float* __restrict densities, const int size) {
 			for (int j = 0; j < size; j++) {
 				amplitudes[j] = valueFrames[(int)grainState[j]].amplitude;
 				densities[j] = valueFrames[(int)grainState[j]].density;
 			}
 		}
-		inline void ProccessGrainClock(const double* grainClock, double* __restrict grainProgress, const float windowVal, const float windowPortion, const int size) {
+		inline void ProccessGrainClock(const double* __restrict grainClock, double* __restrict grainProgress, const float windowVal, const float windowPortion, const int size) {
 			for (int j = 0; j < size; j++) {
 				double sample = grainClock[j] + windowVal;
 				sample -= floor(sample);
 				sample *= windowPortion;
-				sample = std::min(sample, 1.0);
 				grainProgress[j] = sample;
+			}
+			for (int j = 0; j < size; j++) {
+				grainProgress[j] = std::min(grainProgress[j], 1.0);
+
 			}
 		}
 		inline void OuputBlock(double* __restrict sampleIds, float* __restrict amplitudes, float* __restrict densities, float oneOverBufferFrames, int stream, const double* inputAmp,
@@ -360,12 +363,17 @@ constexpr float HanningEnvelope[1024] = {
 			}
 		}
 
-        inline void Increment(const double* fm, const double* grainClock, double* __restrict samplePositions, double* __restrict sampleDeltaTemp, const int size)
+        inline void Increment(const double* __restrict fm, const double* __restrict grainClock, double* __restrict samplePositions, double* __restrict sampleDeltaTemp, const int size)
 		{
-			float start = std::min((double)bufferFrames * startPoint.value, (double)bufferFrames-1);
-			float end = std::min((double)bufferFrames * stopPoint.value, (double)bufferFrames - 1);
+			int fold = loopMode.base > 1.1f ? 1 : 0;
+			double start = std::min((double)bufferFrames * startPoint.value, (double)bufferFrames-1);
+			double end = std::min((double)bufferFrames * stopPoint.value, (double)bufferFrames - 1);
+
 			for (int i = 0; i < size; i++) {
-				sampleDeltaTemp[i] = GfUtils::PitchToRate(fm[i]) * sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
+				sampleDeltaTemp[i] = GfUtils::PitchToRate(fm[i]);
+			}
+			for (int i = 0; i < size; i++) {
+				sampleDeltaTemp[i] *= sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
 			}
 			samplePositions[0] = sourceSample;
 			double lastPosition = sourceSample;
@@ -373,10 +381,15 @@ constexpr float HanningEnvelope[1024] = {
 				samplePositions[i] = lastPosition + sampleDeltaTemp[i-1];
 				lastPosition = samplePositions[i];
 			}
-			int fold = loopMode.base > 1.1f ? 1:0;
 			sourceSample = samplePositions[size - 1] + sampleDeltaTemp[size - 1];
+			sourceSample = GfUtils::pong(sourceSample, start, end, fold);
+			sourceSample = std::clamp(sourceSample, start, end);
+
 			for (int i = 0; i < size; i++) {
 				samplePositions[i] = GfUtils::pong(samplePositions[i], start, end, fold);
+			}
+			for (int i = 0; i < size; i++) {
+				samplePositions[i] = std::clamp(samplePositions[i], start, end);
 			}
 		}
 
