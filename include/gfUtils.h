@@ -4,9 +4,15 @@
 #pragma intrinsic(floor)
 
 namespace Grainflow {
+
+
 	class GfUtils
 	{
+	private:
+		static constexpr float LogOfTwo = 0.30102999566;
+
 	public:
+
 		static inline float Deviate(float center, float range)
 		{
 			std::random_device rd;
@@ -17,10 +23,13 @@ namespace Grainflow {
 		{
 			return lower * (1 - position) + upper * position;
 		}
+		static inline float PowerOfTwo(float x) {
+			return std::exp(x * LogOfTwo);
+		}
 
 		static inline float PitchToRate(float pitch)
 		{
-			return pow(2, pitch / 12);
+			return PowerOfTwo( pitch / 12);
 		}
 
 		static inline float RateToPitch(float rate)
