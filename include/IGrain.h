@@ -108,7 +108,7 @@ constexpr float HanningEnvelope[1024] = {
 
 			float windowPortion = 1 / std::clamp(1 - space.value, 0.0001f, 1.0f);
 			// Check grain clock to make sure it is moving
-			if (ioConfig.in[ioConfig.grainClock][0] == ioConfig.in[ioConfig.grainClock][1])
+			if (ioConfig.grainClock[0] == ioConfig.grainClock[1])
 				return;
 			float windowVal = window.value;
 
@@ -116,19 +116,19 @@ constexpr float HanningEnvelope[1024] = {
 			{
 				int block = i * BLOCKSIZE;
 				auto amp = amplitude.value;
-				double* grainClock = &ioConfig.in[ioConfig.grainClock][block];
-				double* inputAmp = &ioConfig.in[ioConfig.am][block];
-				double* fm = &ioConfig.in[ioConfig.fm][block];
-				double* traversalPhasor = &ioConfig.in[ioConfig.traversalPhasor][block];
+				double* grainClock = &ioConfig.grainClock[block];
+				double* inputAmp = &ioConfig.am[block];
+				double* fm = &ioConfig.fm[block];
+				double* traversalPhasor = &ioConfig.traversalPhasor[block];
 
-				double* grainProgress = &ioConfig.out[g + ioConfig.grainProgress][block];
-				double* grainState = &ioConfig.out[g + ioConfig.grainState][block];
-				double* grainPlayhead = &ioConfig.out[g + ioConfig.grainPlayhead][block];
-				double* grainAmp = &ioConfig.out[g + ioConfig.grainAmp][block];
-				double* grainEnvelope = &ioConfig.out[g + ioConfig.grainEnvelope][block];
-				double* grainOutput = &ioConfig.out[g + ioConfig.grainOutput][block];
-				double* grainChannels = &ioConfig.out[g + ioConfig.grainBufferChannel][block];
-				double* grainStreams = &ioConfig.out[g + ioConfig.grainStreamChannel][block];
+				double* grainProgress = &ioConfig.grainProgress[g][block];
+				double* grainState = &ioConfig.grainState[g][block];
+				double* grainPlayhead = &ioConfig.grainPlayhead[g][block];
+				double* grainAmp = &ioConfig.grainAmp[g][block];
+				double* grainEnvelope = &ioConfig.grainEnvelope[g][block];
+				double* grainOutput = &ioConfig.grainOutput[g][block];
+				double* grainChannels = &ioConfig.grainBufferChannel[g][block];
+				double* grainStreams = &ioConfig.grainStreamChannel[g][block];
 
 				ProccessGrainClock(grainClock, grainProgress, windowVal, windowPortion, BLOCKSIZE);
 				auto valueFrames = GrainReset(grainProgress, traversalPhasor, grainState, BLOCKSIZE);
