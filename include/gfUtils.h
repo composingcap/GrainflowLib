@@ -47,6 +47,8 @@ namespace Grainflow {
 
 		static inline double mod(double a, double b) { return a - b * floor(a / b); }
 
+		static inline double mod(double a) { return a - floor(a); }
+
 		static inline double mod(double num, double min, double max) {return (mod(num - min, max - min) + min);}
 
 		static inline double pong(double num, double min, double max, int fold) {
