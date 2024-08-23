@@ -16,7 +16,13 @@ namespace Grainflow {
 		static inline float Deviate(float center, float range)
 		{
 			std::random_device rd;
-			return center + ((rd() % 10000) * 0.0001f - 1) * 2 * range;
+			return center + ((rd() % 10000) * 0.0001f - 0.5f) * 2 * range;
+		}
+
+		static inline float RandomRange(float bottom, float top)
+		{
+			std::random_device rd;
+			return Lerp(bottom, top,((rd() % 10000) * 0.0001f));
 		}
 
 		static inline float Lerp(float lower, float upper, float position)
