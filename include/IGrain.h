@@ -100,7 +100,7 @@ constexpr float HanningEnvelope[1024] = {
 
 		inline virtual void UpdateBufferInfo(T1* ref, gfIoConfig ioConfig) = 0;
 
-		inline void Proccess(gfIoConfig ioConfig) {
+		inline void Proccess(gfIoConfig &ioConfig) {
 
 			if (ioConfig.blockSize < BLOCKSIZE) return;
 
@@ -116,10 +116,10 @@ constexpr float HanningEnvelope[1024] = {
 			{
 				int block = i * BLOCKSIZE;
 				auto amp = amplitude.value;
-				double* grainClock = &ioConfig.grainClock[block];
-				double* inputAmp = &ioConfig.am[block];
-				double* fm = &ioConfig.fm[block];
-				double* traversalPhasor = &ioConfig.traversalPhasor[block];
+				double* grainClock = &ioConfig.grainClock[g%ioConfig.grainClockChans][block];
+				double* inputAmp = &ioConfig.am[g%ioConfig.amChans][block];
+				double* fm = &ioConfig.fm[g%ioConfig.fmChans][block];
+				double* traversalPhasor = &ioConfig.traversalPhasor[g%ioConfig.traversalPhasorChans][block];
 
 				double* grainProgress = &ioConfig.grainProgress[g][block];
 				double* grainState = &ioConfig.grainState[g][block];
@@ -208,6 +208,16 @@ constexpr float HanningEnvelope[1024] = {
 				throw("invalid type");
 				return;
 			}
+		}
+
+		float ParamGet(GfParamName paramName, GfParamType paramType){
+				auto param = ParamGetHandle(paramName);
+			    switch(paramType){
+                case(GfParamType::base): return param->base;
+                case(GfParamType::random): return param->random;
+                case(GfParamType::offset): return param->offset;
+                case(GfParamType::value): return param->value;
+            }
 		}
 
 		void SampleParam(GfParamName paramName)

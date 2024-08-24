@@ -1,4 +1,7 @@
 #pragma once
+#include <map>
+#include <string>
+#include <algorithm>
 namespace Grainflow {
 	/// <summary>
 	/// Available parameters using the GfParam struct
@@ -97,15 +100,23 @@ namespace Grainflow {
 		double** grainStreamChannel = nullptr;
 
 		//Inputs
-		double* grainClock = nullptr;
-		double* traversalPhasor = nullptr;
-		double* fm = nullptr;
-		double* am = nullptr;
+		double** grainClock = nullptr;
+		double** traversalPhasor = nullptr;
+		double** fm = nullptr;
+		double** am = nullptr;
+
+		int grainClockChans;
+		int traversalPhasorChans;
+		int fmChans;
+		int amChans;
 
 		bool livemode = 0;
 		int blockSize = 0;
 		int samplerate = 1;
 	};
+
+
+
 
 
 }
