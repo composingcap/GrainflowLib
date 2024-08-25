@@ -73,4 +73,10 @@ namespace Grainflow {
 		}
 
 	};
+
+	enum class GF_RETURN_CODE{
+		GF_SUCCESS = 0,
+		GF_ERR = 1,
+		GF_PARAM_NOT_FOUND = 2,
+	};
 }

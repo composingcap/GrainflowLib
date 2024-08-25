@@ -8,7 +8,8 @@ namespace Grainflow {
 	/// </summary>
 	enum class GfParamName
 	{
-		delay = 0,
+		ERR = 0,
+		delay,
 		rate,
 		glisson,
 		window,
@@ -28,7 +29,8 @@ namespace Grainflow {
 	/// </summary>
 	enum class GfParamType
 	{
-		base = 0,
+		ERR = 0,
+		base,
 		random,
 		offset,
 		mode,
@@ -113,6 +115,41 @@ namespace Grainflow {
 		bool livemode = 0;
 		int blockSize = 0;
 		int samplerate = 1;
+	};
+
+	static bool ParamReflection(std::string param, GfParamName& out_ParamName, GfParamType& out_ParamType){
+		//Find and remove param types 
+		out_ParamType =  GfParamType::ERR;
+		if (auto pos = param.find("Random"); pos != std::string::npos){
+			out_ParamType = GfParamType::random;
+			param.erase(pos, 6);
+		}
+		else if (auto pos = param.find("Offset"); pos!= std::string::npos){
+			out_ParamType = GfParamType::offset;
+			param.erase(pos, 6);
+		}
+		else out_ParamType = GfParamType::base;
+		if(out_ParamType == GfParamType::ERR) return false;
+
+		out_ParamName =  GfParamName::ERR;
+		if ( param == "delay"){out_ParamName = GfParamName::delay;}
+		else if ( param == "rate"){out_ParamName = GfParamName::rate;}
+		else if ( param == "window"){out_ParamName = GfParamName::window;}
+		else if ( param == "rate"){out_ParamName = GfParamName::rate;}
+		else if ( param == "amplitude"){out_ParamName = GfParamName::amplitude;}
+		else if ( param == "space"){out_ParamName = GfParamName::space;}
+		else if ( param == "envelopePosition"){out_ParamName = GfParamName::envelopePosition;}
+		else if ( param == "nEnvelopes"){out_ParamName = GfParamName::nEnvelopes;}
+		else if ( param == "direction"){out_ParamName = GfParamName::direction;}
+		else if ( param == "startPoint"){out_ParamName = GfParamName::startPoint;}
+		else if ( param == "stopPoint"){out_ParamName = GfParamName::stopPoint;}
+		else if ( param == "rateQuantizeSemi"){out_ParamName = GfParamName::rateQuantizeSemi;}
+		else if ( param == "loopMode"){out_ParamName = GfParamName::loopMode;}
+		else if ( param == "channel"){out_ParamName = GfParamName::channel;}		
+	
+		if(out_ParamName == GfParamName::ERR) return false;
+
+		return true;
 	};
 
 
