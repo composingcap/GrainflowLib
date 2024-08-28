@@ -60,6 +60,16 @@ namespace Grainflow{
             grains.get()[target-1].ParamSet(value, paramName, paramType);
         }
 
+        GF_RETURN_CODE ParamSet(int target, std::string reflectionString, float value) {
+            GfParamName paramName;
+            GfParamType paramType;
+            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
+            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+            ParamSet(target, paramName, paramType, value);
+            return GF_RETURN_CODE::GF_SUCCESS;
+
+        }
+
         void ChannelParamSet(int channel, GfParamName paramName, GfParamType paramType, float value){
             for(int g =0; g < _grainCount; g++){
                 if (grains[g].channel.value != channel) continue;
@@ -67,26 +77,31 @@ namespace Grainflow{
             }
         }
 
-        void ParamDeviate(GfParamName paramName, GfParamType paramType, float deviation, float center){
-                for (int g = 0; g < _grainCount; g++){
-                    auto value = GfUtils::Deviate(center, deviation);
-                    grains.get()[g].ParamSet(value, paramName, paramType);
-                    }
+        GF_RETURN_CODE ChannelParamSet(int channel, std::string reflectionString, float value) {
+            GfParamName paramName;
+            GfParamType paramType;
+            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
+            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+            ChannelParamSet(channel, paramName, paramType, value);
+            return GF_RETURN_CODE::GF_SUCCESS;
         }
 
-        void ParamRandomRange(GfParamName paramName, GfParamType paramType, float low, float high){
-                for (int g = 0; g < _grainCount; g++){
-                    auto value = GfUtils::RandomRange(low, high);
-                    grains.get()[g].ParamSet(value, paramName, paramType);
-                    }
+        GF_RETURN_CODE GrainParamFunc(GfParamName paramName, GfParamType paramType, float (*func)(float, float, float), float a, float b) {
+            for (int g = 0; g < _grainCount; g++) {
+                float value = (*func)(a, b, (float)g / _grainCount);
+                ParamSet(g, paramName, paramType, value);
+            }
+            return GF_RETURN_CODE::GF_SUCCESS;
         }
 
-        void ParamSpread(GfParamName paramName, GfParamType paramType, float low, float high){
-                for (int g = 0; g < _grainCount; g++){
-                    auto value = GfUtils::Lerp(low, high, g/_grainCount);
-                    grains.get()[g].ParamSet(value, paramName, paramType);
-                    }
+        GF_RETURN_CODE GrainParamFunc(std::string reflectionString, float (*func)(float, float, float), float a, float b) {
+            GfParamName paramName;
+            GfParamType paramType;
+            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
+            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+            return GrainParamFunc(paramName, paramType, func, a, b);
         }
+
 
         float ParamGet(int target, GfParamName paramName){
             if (target >= _grainCount) return;
@@ -96,7 +111,7 @@ namespace Grainflow{
 
 
         float ParamGet(int target, GfParamName paramName, GfParamType paramType){
-            if (target >= _grainCount) return;
+            if (target > _grainCount) return 0;
             if (target <= 1) return grains.get()[0].ParamGet(paramName, paramType);
             return grains.get()[target-1].ParamGet(paramName, paramType);
         }
@@ -153,46 +168,22 @@ namespace Grainflow{
 			
         }
 
-        GF_RETURN_CODE StreamParamDeviate(std::string reflectionString, float deviation, float center){
-            GfParamName paramName;
-			GfParamType paramType;
-			auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-			if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+        GF_RETURN_CODE StreamParamFunc(GfParamName paramName, GfParamType paramType, float (*func)(float, float, float), float a, float b) {
             for (int s = 0; s < _nstreams; s++)
-			{
-				auto value = GfUtils::Deviate(deviation, center);
-				auto returnCode = StreamParamSet(s, paramName, paramType, value);
-                if (returnCode!=GF_RETURN_CODE::GF_SUCCESS) return returnCode;
-			}
+            {
+                float value = func(a, b, (float)s / _nstreams);
+                auto returnCode = StreamParamSet(s, paramName, paramType, value);
+                if (returnCode != GF_RETURN_CODE::GF_SUCCESS) return returnCode;
+            }
             return GF_RETURN_CODE::GF_SUCCESS;
         }
-
-         GF_RETURN_CODE StreamParamRandomRange(std::string reflectionString, float low, float high){
+        GF_RETURN_CODE StreamParamFunc(std::string reflectionString, float (*func)(float, float, float), float a, float b) {
             GfParamName paramName;
-			GfParamType paramType;
-			auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-			if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-            for (int s = 0; s < _nstreams; s++)
-			{
-				auto value = GfUtils::RandomRange(low, high);
-				auto returnCode = StreamParamSet(s, paramName, paramType, value);
-                if (returnCode != GF_RETURN_CODE::GF_SUCCESS) return returnCode;
-			}
-            return GF_RETURN_CODE::GF_SUCCESS;
-        }
+            GfParamType paramType;
+            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
+            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+            return StreamParamFunc(paramName, paramType, func, a, b);
 
-         GF_RETURN_CODE StreamParamSpread(std::string reflectionString, float low, float high){
-            GfParamName paramName;
-			GfParamType paramType;
-			auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-			if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-            for (int s = 0; s < _nstreams; s++)
-			{
-				auto value = GfUtils::Lerp(low, high, _nstreams > 0 ? s/_nstreams : 1);
-				auto returnCode = StreamParamSet(s, paramName, paramType, value);
-                if (returnCode != GF_RETURN_CODE::GF_SUCCESS) return returnCode;
-			}
-            return GF_RETURN_CODE::GF_SUCCESS;
         }
 
         void StreamSet(GfStreamSetType mode, int nstreams){

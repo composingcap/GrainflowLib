@@ -217,7 +217,9 @@ constexpr float HanningEnvelope[1024] = {
                 case(GfParamType::random): return param->random;
                 case(GfParamType::offset): return param->offset;
                 case(GfParamType::value): return param->value;
+					
             }
+				return 0;
 		}
 
 		void SampleParam(GfParamName paramName)

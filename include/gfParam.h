@@ -136,7 +136,7 @@ namespace Grainflow {
 		else if ( param == "rate"){out_ParamName = GfParamName::rate;}
 		else if ( param == "window"){out_ParamName = GfParamName::window;}
 		else if ( param == "rate"){out_ParamName = GfParamName::rate;}
-		else if ( param == "amplitude"){out_ParamName = GfParamName::amplitude;}
+		else if ( param == "amp"){out_ParamName = GfParamName::amplitude;}
 		else if ( param == "space"){out_ParamName = GfParamName::space;}
 		else if ( param == "envelopePosition"){out_ParamName = GfParamName::envelopePosition;}
 		else if ( param == "nEnvelopes"){out_ParamName = GfParamName::nEnvelopes;}
