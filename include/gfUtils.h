@@ -9,7 +9,6 @@ namespace Grainflow {
 	class GfUtils
 	{
 	private:
-		static constexpr float LogOfTwo = 0.30102999566;
 
 	public:
 
@@ -29,13 +28,10 @@ namespace Grainflow {
 		{
 			return lower * (1 - position) + upper * position;
 		}
-		static inline float PowerOfTwo(float x) {
-			return std::exp(x * LogOfTwo);
-		}
 
 		static inline float PitchToRate(float pitch)
 		{
-			return PowerOfTwo( pitch / 12);
+			return std::exp2f(pitch / 12);
 		}
 
 		static inline float RateToPitch(float rate)

@@ -22,7 +22,11 @@ namespace Grainflow {
 		stopPoint,
 		rateQuantizeSemi,
 		loopMode,
-		channel
+		channel,
+		//These do not have param scructs
+		transpose,
+		glissonSt,
+
 	};
 	/// <summary>
 	/// Different parameter types using in the GfParam Struct
@@ -145,12 +149,18 @@ namespace Grainflow {
 		else if ( param == "stopPoint"){out_ParamName = GfParamName::stopPoint;}
 		else if ( param == "rateQuantizeSemi"){out_ParamName = GfParamName::rateQuantizeSemi;}
 		else if ( param == "loopMode"){out_ParamName = GfParamName::loopMode;}
-		else if ( param == "channel"){out_ParamName = GfParamName::channel;}		
+		else if ( param == "channel"){out_ParamName = GfParamName::channel;}	
+		//These cases are converted internally to other parameters 
+		else if (param == "transpose") { out_ParamName = GfParamName::transpose; }
+		else if (param == "glissonSt") { out_ParamName = GfParamName::glissonSt; }
+
 	
 		if(out_ParamName == GfParamName::ERR) return false;
 
 		return true;
 	};
+
+
 
 
 

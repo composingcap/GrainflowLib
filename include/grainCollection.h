@@ -11,6 +11,7 @@ namespace Grainflow{
         bool _autoOverlap = true;
 
         public:
+        int samplerate = 48000;
 
         GrainCollection(int grainCount = 0){
             if (grainCount > 0){ 
@@ -49,8 +50,33 @@ namespace Grainflow{
         #pragma endregion
 
         #pragma region Params
+
+        void TransformParams(GfParamName& paramName, GfParamType& paramType, float& value) {
+            switch (paramName) {
+            case GfParamName::transpose:
+                if (paramType == GfParamType::base) value = GfUtils::PitchToRate(value);
+                else value = GfUtils::PitchOffsetToRateOffset(value);
+                paramName = GfParamName::rate;
+                break;
+            case GfParamName::glissonSt:
+                value = GfUtils::PitchOffsetToRateOffset(value);
+                paramName = GfParamName::glisson;
+                break;
+            case GfParamName::delay:
+                value = value * 0.001f * samplerate;
+                break;
+            case GfParamName::amplitude:
+                if (paramType == GfParamType::base) break;
+                value = std::max(std::min(-value, 0.0f), -1.0f);
+                break;
+            default:
+                break;
+            }
+        }
+
         void ParamSet(int target, GfParamName paramName, GfParamType paramType, float value){
             if (target >= _grainCount) return;
+            TransformParams(paramName, paramType, value);
             if (target <= 0){
                 for (int g = 0; g < _grainCount; g++){
                     grains.get()[g].ParamSet(value, paramName, paramType);
