@@ -51,9 +51,9 @@ namespace Grainflow{
 
         #pragma region DSP
         // Proccesses all grain given an io config with the correct inputs and outputs  
-        void Proccess(gfIoConfig &ioConfig){
+        void Process(gfIoConfig &ioConfig){
             for (int g = 0; g < _grainCount; g++){
-                grains.get()[g].Proccess(ioConfig); 
+                grains.get()[g].Process(ioConfig); 
             }
         }
 

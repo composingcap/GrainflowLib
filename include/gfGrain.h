@@ -91,11 +91,12 @@ constexpr float HanningEnvelope[1024] = {
 			rateQuantizeSemi.value = 1;
 		}
 
-		inline void Proccess(gfIoConfig &ioConfig) {
+		inline void Process(gfIoConfig &ioConfig) {
 
 			if (ioConfig.blockSize < BLOCKSIZE) return;
-
 			bufferReader.UpdateBufferInfo(bufferRef, ioConfig, &bufferInfo);
+			bufferReader.UpdateBufferInfo(envelopeRef, ioConfig, nullptr);
+
 
 			float windowPortion = 1 / std::clamp(1 - space.value, 0.0001f, 1.0f);
 			// Check grain clock to make sure it is moving
@@ -121,7 +122,7 @@ constexpr float HanningEnvelope[1024] = {
 				double* grainChannels = &ioConfig.grainBufferChannel[g][block];
 				double* grainStreams = &ioConfig.grainStreamChannel[g][block];
 
-				ProccessGrainClock(grainClock, grainProgress, windowVal, windowPortion, BLOCKSIZE);
+				ProcessGrainClock(grainClock, grainProgress, windowVal, windowPortion, BLOCKSIZE);
 				auto valueFrames = GrainReset(grainProgress, traversalPhasor, grainState, BLOCKSIZE);
 				Increment(fm, grainProgress, sampleIdTemp, tempDouble, BLOCKSIZE);
 				bufferReader.SampleEnvelope(envelopeRef,useDefaultEnvelope, nEnvelopes.value, envelope.value, grainEnvelope, grainProgress, BLOCKSIZE);
@@ -339,7 +340,7 @@ constexpr float HanningEnvelope[1024] = {
 				densities[j] = valueFrames[(int)grainState[j]].density;
 			}
 		}
-		inline void ProccessGrainClock(const double* __restrict grainClock, double* __restrict grainProgress, const float windowVal, const float windowPortion, const int size) {
+		inline void ProcessGrainClock(const double* __restrict grainClock, double* __restrict grainProgress, const float windowVal, const float windowPortion, const int size) {
 			for (int j = 0; j < size; j++) {
 				double sample = grainClock[j] + windowVal;
 				sample -= floor(sample);
