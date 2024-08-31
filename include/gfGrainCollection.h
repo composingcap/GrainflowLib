@@ -1,31 +1,41 @@
-#include "IGrain.h"
+#pragma once
+#include "GfGrain.h"
 #include "gfParam.h"
+#include <memory>
+
 namespace Grainflow{
-    template<typename bufferRefType, class GrainType>
-    class GrainCollection{
+    template<typename T, size_t INTERNALBLOCK>
+    class GfGrainCollection{
         private:
-        std::unique_ptr<GrainType[]> grains;
+        std::unique_ptr<GfGrain<T, INTERNALBLOCK>[]> grains;
+        GfIBufferReader<T> bufferReader;
         int _grainCount = 0;
         int _activeGrains = 0;
         int _nstreams = 0;
         bool _autoOverlap = true;
 
+
         public:
         int samplerate = 48000;
 
-        GrainCollection(int grainCount = 0){
-            if (grainCount > 0){ 
+        GfGrainCollection(GfIBufferReader<T> bufferReader, int grainCount = 0){
+ 
+            this->bufferReader = bufferReader;
+            if (grainCount > 0) {
                 Resize(grainCount);
             }
         }
 
-        ~GrainCollection(){
+        ~GfGrainCollection(){
             grains.release(); 
         }
 
         void Resize(int grainCount){
             _grainCount = grainCount;
-            grains.reset((new GrainType[grainCount]));
+            grains.reset(new GfGrain<T,INTERNALBLOCK>[grainCount]);
+            for (int i = 0; i < grainCount; i++) {
+                grains[i].bufferReader = bufferReader;
+            }
             SetActiveGrains(grainCount);
         }
 
@@ -33,7 +43,7 @@ namespace Grainflow{
             return _grainCount;
         }
 
-        GrainType* GetGrain(int index){
+        GfGrain<T, INTERNALBLOCK>* GetGrain(int index){
             if (index >= _grainCount) return nullptr;
             return &grains[index];
         }
@@ -225,7 +235,7 @@ namespace Grainflow{
 
         #pragma endregion
 
-        bufferRefType* GetBuffer(GFBuffers type, int index = 0){return grains[index].GetBuffer(type);}
+        T* GetBuffer(GFBuffers type, int index = 0){return grains[index].GetBuffer(type);}
 
         int ChanelGet(int index){return grains[index].channel.base;}
         void ChannelsSetInterleaved(int channels){
