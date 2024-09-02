@@ -26,6 +26,7 @@ namespace Grainflow {
 		//These do not have param scructs
 		transpose,
 		glissonSt,
+		stream,
 
 	};
 	/// <summary>
@@ -64,6 +65,7 @@ namespace Grainflow {
 		automaticStreams = 0,
 		perStreams,
 		randomStreams,
+		manualStreams,
 	};
 
 	enum class GfBufferMode
@@ -153,6 +155,8 @@ namespace Grainflow {
 		//These cases are converted internally to other parameters 
 		else if (param == "transpose") { out_ParamName = GfParamName::transpose; }
 		else if (param == "glissonSt") { out_ParamName = GfParamName::glissonSt; }
+		else if (param == "stream") { out_ParamName = GfParamName::stream; }
+
 
 	
 		if(out_ParamName == GfParamName::ERR) return false;

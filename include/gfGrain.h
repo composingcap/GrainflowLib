@@ -402,16 +402,31 @@ constexpr float HanningEnvelope[1024] = {
 		{
 			switch (mode)
 			{
-			case (GfStreamSetType::automaticStreams):
-				stream = g % nstreams;
-				break;
-			case (GfStreamSetType::perStreams):
-				stream = g / nstreams;
-				break;
-			case (GfStreamSetType::randomStreams):
-				std::random_device rd;
-				stream = rd() % nstreams;
-				break;
+				case GfStreamSetType::automaticStreams:
+				{
+					stream = g % nstreams;
+					break;
+				}
+				case GfStreamSetType::perStreams:
+				{
+					stream = g / nstreams;
+					break;
+				}
+				case GfStreamSetType::randomStreams:
+				{
+					std::random_device rd;
+					stream = rd() % nstreams;
+					break;
+				}
+				case GfStreamSetType::manualStreams:
+				{
+					stream = (maxGrains-1 + nstreams) % nstreams;
+					break;
+				}
+				default:
+				{
+					break;
+				}
 			}
 		};
 		void SampleDirection()

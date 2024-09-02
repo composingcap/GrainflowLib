@@ -102,6 +102,10 @@ namespace Grainflow{
             GfParamType paramType;
             auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
             if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+            if (paramName == GfParamName::stream) {
+                StreamSet(target, (int)value);
+                return GF_RETURN_CODE::GF_SUCCESS;
+            }
             ParamSet(target, paramName, paramType, value);
             return GF_RETURN_CODE::GF_SUCCESS;
 
@@ -141,7 +145,7 @@ namespace Grainflow{
 
 
         float ParamGet(int target, GfParamName paramName){
-            if (target >= _grainCount) return;
+            if (target >= _grainCount) return 0;
             if (target <= 1) return grains.get()[0].ParamGet(paramName);
             return grains.get()[target-1].ParamGet(paramName);
         }
@@ -190,7 +194,7 @@ namespace Grainflow{
         GF_RETURN_CODE StreamParamSet(int stream, GfParamName paramName, GfParamType paramType, float value){
             if (stream > _nstreams || stream < 0) return GF_RETURN_CODE::GF_ERR;
             for(int g =0; g < _grainCount; g++){
-                if (grains[g].stream != stream && stream != 0) continue;
+                if (grains[g].stream != stream || stream == 0) continue;
                 ParamSet(g, paramName, paramType, value);
             }
             return GF_RETURN_CODE::GF_SUCCESS;
@@ -225,9 +229,17 @@ namespace Grainflow{
 
         void StreamSet(GfStreamSetType mode, int nstreams){
             _nstreams = nstreams;
+            if (mode == GfStreamSetType::manualStreams) return;
             for (int g = 0; g< _grainCount; g++){
 				grains[g].StreamSet(_grainCount, mode, nstreams);
 			}
+        }
+
+        void StreamSet(int grain, int streamId) {
+            if (grain <= 0) return;
+            if (grain > _grainCount) return;
+            if (streamId <= 0) return;
+            grains[grain-1].StreamSet(streamId, GfStreamSetType::manualStreams, _nstreams);
         }
 
         int StreamGet(int grainIndex){
@@ -250,13 +262,6 @@ namespace Grainflow{
                 grains[g].channel.random = mode;
             }
         }
-        //TODO 
-        // - Implement Parameter Name reflections 
-        // - Remove any need to access individual grains 
-        //  -Streams
-        //  -Buffer Channels
-        // - Ensure all functionallity is still operational 
-
     };
 
 }
