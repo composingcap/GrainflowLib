@@ -62,6 +62,7 @@ namespace Grainflow{
         #pragma region Params
 
         void TransformParams(GfParamName& paramName, GfParamType& paramType, float& value) {
+            if (paramType == GfParamType::mode) return; //Modes are not a value type and should not be effected 
             switch (paramName) {
             case GfParamName::transpose:
                 if (paramType == GfParamType::base) value = GfUtils::PitchToRate(value);
