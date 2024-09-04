@@ -39,6 +39,7 @@ constexpr float HanningEnvelope[1024] = {
 		float densityTemp[BLOCKSIZE];
 		float ampTemp[BLOCKSIZE];
 		double tempDouble[BLOCKSIZE];
+		bool resetPending;
 
 	protected:
 		
@@ -244,20 +245,22 @@ constexpr float HanningEnvelope[1024] = {
 				valueTable[i].direction = direction.value;
 				valueTable[i].density = grainEnabled;
 			}
-			bool grainReset = lastGrainClock > grainClock[0];
+			//TODO the performance of this statment can be improved 
+			bool grainReset = (lastGrainClock > grainClock[0] && grainClock[0] >= 0.00000001) || (lastGrainClock <= 0.00000001 && grainClock[0] > 0.00000001);
 			bool zeroCross = false;
-			grainState[0] = !grainReset;
+			grainState[0] = !grainReset && grainClock[0] >= 0.00000001;
 			int resetPosition = 0;
-			for (int i = 1; i < size; i++) {
-				zeroCross = grainClock[i - 1] > grainClock[i];
-				grainState[i] = !zeroCross;
-				resetPosition = resetPosition * !(grainReset && zeroCross) + i * (grainReset && zeroCross);
-				grainReset = grainReset || zeroCross;
-			}
+				for (int i = 1; i < size; i++) {
+					zeroCross = (grainClock[i - 1] > grainClock[i] && grainClock[i] >= 0.00000001) || (grainClock[i-1] <= 0.00000001 && grainClock[i] > 0.00000001);
+					grainState[i] = !zeroCross && grainClock[i] >= 0.00000001;
+					resetPosition = resetPosition * !(grainReset && zeroCross) + i * (grainReset && zeroCross);
+					grainReset = grainReset || zeroCross;
+				}
+				
 			lastGrainClock = grainClock[size - 1];
 			if (!grainReset) return valueTable;
 
-				if(!bufferReader.SampleParamBuffer(GetBuffer(GFBuffers::delayBuffer), ParamGetHandle(GfParamName::delay), g)) SampleParam(GfParamName::delay);
+			if(!bufferReader.SampleParamBuffer(GetBuffer(GFBuffers::delayBuffer), ParamGetHandle(GfParamName::delay), g)) SampleParam(GfParamName::delay);
 				sourceSample = ((traversal[resetPosition]) * bufferInfo.bufferFrames - delay.value-1);
 				sourceSample = GfUtils::mod(sourceSample, bufferInfo.bufferFrames);
 				if(!bufferReader.SampleParamBuffer(GetBuffer(GFBuffers::rateBuffer), ParamGetHandle(GfParamName::rate),g)) SampleParam(GfParamName::rate);
@@ -337,7 +340,7 @@ constexpr float HanningEnvelope[1024] = {
 		inline void ExpandValueTable(const  GfValueTable* __restrict valueFrames, const double* __restrict grainState, float* __restrict amplitudes, float* __restrict densities, const int size) {
 			for (int j = 0; j < size; j++) {
 				amplitudes[j] = valueFrames[(int)grainState[j]].amplitude;
-				densities[j] = valueFrames[(int)grainState[j]].density;
+				densities[j] = valueFrames[(int)grainState[j]].density * grainState[j];
 			}
 		}
 		inline void ProcessGrainClock(const double* __restrict grainClock, double* __restrict grainProgress, const float windowVal, const float windowPortion, const int size) {
