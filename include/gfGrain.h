@@ -90,6 +90,7 @@ constexpr float HanningEnvelope[1024] = {
 			stopPoint.base = 1;
 			stopPoint.value = 1;
 			rateQuantizeSemi.value = 1;
+			nEnvelopes.value = 1;
 		}
 
 		inline void Process(gfIoConfig &ioConfig) {
