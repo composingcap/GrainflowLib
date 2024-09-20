@@ -86,7 +86,7 @@ namespace Grainflow{
         }
 
         void ParamSet(int target, GfParamName paramName, GfParamType paramType, float value){
-            if (target >= _grainCount) return;
+            if (target > _grainCount+1) return;
             TransformParams(paramName, paramType, value);
             if (target <= 0){
                 for (int g = 0; g < _grainCount; g++){
