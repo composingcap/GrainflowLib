@@ -237,7 +237,7 @@ constexpr float HanningEnvelope[1024] = {
         inline GfValueTable* GrainReset(double* __restrict grainClock, const double* traversal, double* __restrict grainState, const int size)
 		{
 			for (int i = 0; i < 2; i++) {
-				valueTable[i].delay = delay.value * bufferInfo.samplerate;
+				valueTable[i].delay = delay.value*0.001 * bufferInfo.samplerate;
 				valueTable[i].rate = rate.value;
 				valueTable[i].glisson = glisson.value;
 				valueTable[i].window = window.value;
@@ -263,7 +263,7 @@ constexpr float HanningEnvelope[1024] = {
 			if (!grainReset) return valueTable;
 
 			if(!bufferReader.SampleParamBuffer(GetBuffer(GFBuffers::delayBuffer), ParamGetHandle(GfParamName::delay), g)) SampleParam(GfParamName::delay);
-				sourceSample = ((traversal[resetPosition]) * bufferInfo.bufferFrames - delay.value-1);
+				sourceSample = ((traversal[resetPosition]) * bufferInfo.bufferFrames - (delay.value*0.001f*bufferSamplerate)-1);
 				sourceSample = GfUtils::mod(sourceSample, bufferInfo.bufferFrames);
 				if(!bufferReader.SampleParamBuffer(GetBuffer(GFBuffers::rateBuffer), ParamGetHandle(GfParamName::rate),g)) SampleParam(GfParamName::rate);
 				rate.value = 1 + GfUtils::round(rate.value - 1, 1-rateQuantizeSemi.value);
@@ -280,7 +280,7 @@ constexpr float HanningEnvelope[1024] = {
 
 
 				int i = 1;
-				valueTable[i].delay = delay.value;
+				valueTable[i].delay = delay.value* 0.001 * bufferSamplerate;
 				valueTable[i].rate = rate.value;
 				valueTable[i].glisson = glisson.value;
 				valueTable[i].window = window.value;
