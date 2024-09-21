@@ -49,6 +49,7 @@ constexpr float HanningEnvelope[1024] = {
 
 
 	public:
+		int bufferSamplerate = 48000;
 
 		bool useDefaultEnvelope = true;
 		double sourceSample = 0;
@@ -230,13 +231,13 @@ constexpr float HanningEnvelope[1024] = {
 
 		void SampleNormalized(GfParam* param, float range) {
 			std::random_device rd;
-			param->value = GfUtils::mod((abs((rd() % 10000) * 0.0001f) * (param->random) + +param->offset) * range + param->base, range);
+			param->value = GfUtils::mod((abs((rd() % 10000) * 0.0001f) * (param->random) + param->offset) * range + param->base, range);
 		}
 
         inline GfValueTable* GrainReset(double* __restrict grainClock, const double* traversal, double* __restrict grainState, const int size)
 		{
 			for (int i = 0; i < 2; i++) {
-				valueTable[i].delay = delay.value;
+				valueTable[i].delay = delay.value * bufferInfo.samplerate;
 				valueTable[i].rate = rate.value;
 				valueTable[i].glisson = glisson.value;
 				valueTable[i].window = window.value;

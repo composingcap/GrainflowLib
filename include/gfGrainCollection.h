@@ -73,9 +73,6 @@ namespace Grainflow{
                 value = GfUtils::PitchOffsetToRateOffset(value);
                 paramName = GfParamName::glisson;
                 break;
-            case GfParamName::delay:
-                value = value * 0.001f * samplerate;
-                break;
             case GfParamName::amplitude:
                 if (paramType == GfParamType::base) break;
                 value = std::max(std::min(-value, 0.0f), -1.0f);

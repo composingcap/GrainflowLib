@@ -6,6 +6,8 @@ namespace Grainflow {
 		float oneOverBufferFrames = 0;
 		float sampleRateAdjustment = 1;
 		int nchannels = 0;
+		int samplerate = 48000;
+		double oneOverSamplerate = 1;
 	};
 	template<typename T>
 	struct GfIBufferReader {
