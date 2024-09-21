@@ -12,6 +12,8 @@ namespace Grainflow {
 		delay,
 		rate,
 		glisson,
+		glissonRows,
+		glissonPosition,
 		window,
 		amplitude,
 		space,
@@ -82,7 +84,8 @@ namespace Grainflow {
 		envelope,
 		rateBuffer,
 		delayBuffer,
-		windowBuffer
+		windowBuffer,
+		glissonBuffer,
 	};
 
 	struct GfParam

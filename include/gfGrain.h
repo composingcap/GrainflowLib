@@ -39,6 +39,7 @@ constexpr float HanningEnvelope[1024] = {
 		float densityTemp[BLOCKSIZE];
 		float ampTemp[BLOCKSIZE];
 		double tempDouble[BLOCKSIZE];
+		double glissonTemp[BLOCKSIZE];
 		bool resetPending;
 
 	protected:
@@ -65,8 +66,11 @@ constexpr float HanningEnvelope[1024] = {
 		GfParam envelope;
 		GfParam direction;
 		GfParam nEnvelopes;
+		GfParam glissonRows;
+		GfParam glissonPosition;
 		GfParam rateQuantizeSemi;
 		GfParam loopMode;
+
 
 		GfParam startPoint;
 		GfParam stopPoint;
@@ -79,6 +83,7 @@ constexpr float HanningEnvelope[1024] = {
 		T* delayBufRef = nullptr;
 		T* rateBufRef = nullptr;
 		T* windowBufRef = nullptr;
+		T* glissonBuffer = nullptr;
 
 		GfIBufferReader<T> bufferReader;
 		GfBufferInfo bufferInfo;
@@ -92,6 +97,7 @@ constexpr float HanningEnvelope[1024] = {
 			stopPoint.value = 1;
 			rateQuantizeSemi.value = 1;
 			nEnvelopes.value = 1;
+			glissonRows.value = 1;
 		}
 
 		inline void Process(gfIoConfig &ioConfig) {
@@ -127,7 +133,7 @@ constexpr float HanningEnvelope[1024] = {
 
 				ProcessGrainClock(grainClock, grainProgress, windowVal, windowPortion, BLOCKSIZE);
 				auto valueFrames = GrainReset(grainProgress, traversalPhasor, grainState, BLOCKSIZE);
-				Increment(fm, grainProgress, sampleIdTemp, tempDouble, BLOCKSIZE);
+				Increment(fm, grainProgress, sampleIdTemp, tempDouble, glissonTemp, BLOCKSIZE);
 				bufferReader.SampleEnvelope(envelopeRef,useDefaultEnvelope, nEnvelopes.value, envelope.value, grainEnvelope, grainProgress, BLOCKSIZE);
 				bufferReader.SampleBuffer(bufferRef,channel.value, grainOutput, sampleIdTemp, BLOCKSIZE);
 				ExpandValueTable(valueFrames, grainState, ampTemp, densityTemp, BLOCKSIZE);
@@ -157,6 +163,8 @@ constexpr float HanningEnvelope[1024] = {
 				return &envelope;
 			case (GfParamName::nEnvelopes):
 				return &nEnvelopes;
+			case (GfParamName::glissonRows):
+				return &glissonRows;
 			case (GfParamName::direction):
 				return &direction;
 			case (GfParamName::stopPoint):
@@ -169,6 +177,8 @@ constexpr float HanningEnvelope[1024] = {
 				return &loopMode;
 			case (GfParamName::channel):
 				return &channel;
+			case (GfParamName::glissonPosition):
+				return &glissonPosition;
 			}	
 
 			return nullptr;
@@ -274,6 +284,7 @@ constexpr float HanningEnvelope[1024] = {
 				SampleParam(&amplitude);
 				SampleParam(&startPoint);
 				SampleParam(&stopPoint);
+				SampleParam(&glissonPosition);
 				SampleNormalized(&channel, bufferInfo.nchannels);
 				SampleDensity();
 				SampleDirection();
@@ -312,6 +323,9 @@ constexpr float HanningEnvelope[1024] = {
 			case (GFBuffers::windowBuffer):
 				windowBufRef = buffer;
 				break;
+			case (GFBuffers::glissonBuffer):
+				glissonBuffer = buffer;
+				break;
 			};
 		};
 
@@ -329,6 +343,8 @@ constexpr float HanningEnvelope[1024] = {
 				return delayBufRef;
 			case (GFBuffers::windowBuffer):
 				return windowBufRef;
+			case (GFBuffers::glissonBuffer):
+				return glissonBuffer;
 			}
 			return nullptr;
 		}
@@ -372,7 +388,7 @@ constexpr float HanningEnvelope[1024] = {
 			}
 		}
 
-        inline void Increment(const double* __restrict fm, const double* __restrict grainClock, double* __restrict samplePositions, double* __restrict sampleDeltaTemp, const int size)
+        inline void Increment(const double* __restrict fm, const double* __restrict grainClock, double* __restrict samplePositions, double* __restrict sampleDeltaTemp, double* __restrict glissonTemp, const int size)
 		{
 			int fold = loopMode.base > 1.1f ? 1 : 0;
 			double start = std::min((double)bufferInfo.bufferFrames * startPoint.value, (double)bufferInfo.bufferFrames-1);
@@ -381,8 +397,16 @@ constexpr float HanningEnvelope[1024] = {
 			for (int i = 0; i < size; i++) {
 				sampleDeltaTemp[i] = GfUtils::PitchToRate(fm[i]);
 			}
-			for (int i = 0; i < size; i++) {
-				sampleDeltaTemp[i] *= bufferInfo.sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
+			if (glisson.mode == GfBufferMode::normal) {
+				for (int i = 0; i < size; i++) {
+					sampleDeltaTemp[i] *= bufferInfo.sampleRateAdjustment * rate.value * (1 + glisson.value * grainClock[i]) * direction.value;
+				}
+			}
+			else {
+				bufferReader.SampleEnvelope(glissonBuffer, false, glissonRows.value, glissonPosition.value, glissonTemp, grainClock, size);
+				for (int i = 0; i < size; i++) {
+					sampleDeltaTemp[i] *= bufferInfo.sampleRateAdjustment * rate.value * (1 + glissonTemp[i]*glisson.value * grainClock[i]) * direction.value;
+				}
 			}
 			samplePositions[0] = sourceSample;
 			double lastPosition = sourceSample;
