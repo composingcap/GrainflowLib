@@ -1,76 +1,85 @@
-#pragma once 
+#pragma once
 #include  <cmath>
 #pragma intrinsic(fabs)
 #pragma intrinsic(floor)
 
-namespace Grainflow {
-
-
-	class GfUtils
+namespace Grainflow
+{
+	class gf_utils
 	{
 	private:
 
 	public:
-
-		static inline float Deviate(float center, float range, float _empty = 0)
+		static inline float deviate(const float center, const float range, [[maybe_unused]] float empty = 0)
 		{
 			std::random_device rd;
-			return center + ((rd() % 10000) * 0.0001f - 0.5f) * 2 * range;
+			return center + (static_cast<float>(rd() % 10000) * 0.0001f - 0.5f) * 2 * range;
 		}
 
-		static inline float RandomRange(float bottom, float top, float _empty = 0)
+		static inline float random_range(const float bottom, const float top, [[maybe_unused]] float empty = 0)
 		{
 			std::random_device rd;
-			return Lerp(bottom, top,((rd() % 10000) * 0.0001f));
+			return lerp(bottom, top, rd() % 10000 * 0.0001f);
 		}
 
-		static inline float Lerp(float lower, float upper, float position)
+		static inline float lerp(const float lower, const float upper, const float position)
 		{
 			return lower * (1 - position) + upper * position;
 		}
 
-		static inline float PitchToRate(float pitch)
+		static inline float pitch_to_rate(const float pitch)
 		{
 			return std::exp2f(pitch / 12);
 		}
 
-		static inline float RateToPitch(float rate)
+		static inline float rate_to_pitch(const float rate)
 		{
-			return round(12*log2(rate),1e-4);
+			return static_cast<float>(round(12 * log2(rate), 1e-4));
 		}
 
-		static inline float RateOffsetToPitchOffset(float rateOffset) {
-			return RateToPitch(rateOffset+1);
+		static inline float rate_offset_to_pitch_offset(const float rate_offset)
+		{
+			return rate_to_pitch(rate_offset + 1);
 		}
 
-		static inline float PitchOffsetToRateOffset(float pitchOffset) {
-			return PitchToRate(pitchOffset)-1;
+		static inline float pitch_offset_to_rate_offset(const float pitch_offset)
+		{
+			return pitch_to_rate(pitch_offset) - 1;
 		}
 
-		static inline double mod(double a, double b) { return a - b * floor(a / b); }
+		static inline double mod(const double a, const double b) { return a - b * floor(a / b); }
 
-		static inline double mod(double num, double min, double max) {return (mod(num - min, max - min) + min);}
+		static inline double mod(const double num, const double min, const double max)
+		{
+			return (mod(num - min, max - min) + min);
+		}
 
-		static inline double pong(double num, double min, double max, int fold) {
-			double range = max - min;
-			return (range * fold) + (1-fold*2) * std::fabs(mod(num - min, range*(fold+1)) - (range * fold)) + min;
+		static inline double pong(const double num, const double min, const double max, const int fold)
+		{
+			const double range = max - min;
+			return (range * fold) + (1 - fold * 2) * std::fabs(mod(num - min, range * (fold + 1)) - (range * fold)) +
+				min;
 		}
 
 
-		static inline double round(double val, double step){ 
+		static inline double round(const double val, double step)
+		{
 			step = fabs(step);
-			return step * std::floor(val / (step+(step==0)*0.01f)+0.49f) * (step > 0) + val * (step <= 0);
+			return step * std::floor(val / (step + static_cast<double>(abs(step) < 0.0001) * 0.01) + 0.49) * (step > 0)
+				+ val * (step <= 0);
 		}
 
 
-		static inline double trunc(double val, double step) {
+		static inline double trunc(const double val, double step)
+		{
 			step = fabs(step);
-			return step * std::floor(val / (step + (step == 0) * 0.01f)) * (step > 0) + val * (step <= 0);
+			return step * std::floor(val / (step + static_cast<double>(abs(step) < 0.0001) * 0.01f)) * (step > 0) + val
+				* (step <= 0);
 		}
-
 	};
 
-	enum class GF_RETURN_CODE{
+	enum class GF_RETURN_CODE
+	{
 		GF_SUCCESS = 0,
 		GF_ERR = 1,
 		GF_PARAM_NOT_FOUND = 2,

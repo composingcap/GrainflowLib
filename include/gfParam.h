@@ -2,39 +2,41 @@
 #include <map>
 #include <string>
 #include <algorithm>
-namespace Grainflow {
+
+namespace Grainflow
+{
 	/// <summary>
 	/// Available parameters using the GfParam struct
 	/// </summary>
-	enum class GfParamName
+	enum class gf_param_name : std::uint8_t
 	{
 		ERR = 0,
 		delay,
 		rate,
 		glisson,
-		glissonRows,
-		glissonPosition,
+		glisson_rows,
+		glisson_position,
 		window,
 		amplitude,
 		space,
-		envelopePosition,
-		nEnvelopes,
+		envelope_position,
+		n_envelopes,
 		direction,
-		startPoint,
-		stopPoint,
-		rateQuantizeSemi,
-		loopMode,
+		start_point,
+		stop_point,
+		rate_quantize_semi,
+		loop_mode,
 		channel,
-		//These do not have param scructs
+		//These do not have param structs
 		transpose,
-		glissonSt,
+		glisson_st,
 		stream,
-
 	};
+
 	/// <summary>
 	/// Different parameter types using in the GfParam Struct
 	/// </summary>
-	enum class GfParamType
+	enum class gf_param_type : std::uint8_t
 	{
 		ERR = 0,
 		base,
@@ -44,7 +46,8 @@ namespace Grainflow {
 		value,
 	};
 
-	struct GfValueTable {
+	struct gf_value_table
+	{
 		float delay;
 		float rate;
 		float glisson;
@@ -62,15 +65,15 @@ namespace Grainflow {
 /// </summary>
 
 
-	enum class GfStreamSetType
+	enum class gf_stream_set_type : std::uint8_t
 	{
-		automaticStreams = 0,
-		perStreams,
-		randomStreams,
-		manualStreams,
+		automatic_streams = 0,
+		per_streams,
+		random_streams,
+		manual_streams,
 	};
 
-	enum class GfBufferMode
+	enum class gf_buffer_mode : std::uint8_t
 	{
 		normal = 0,
 		buffer_sequence = 1,
@@ -78,99 +81,66 @@ namespace Grainflow {
 	};
 
 
-	enum class GFBuffers
+	enum class gf_buffers : std::uint8_t
 	{
 		buffer = 0,
 		envelope,
-		rateBuffer,
-		delayBuffer,
-		windowBuffer,
-		glissonBuffer,
+		rate_buffer,
+		delay_buffer,
+		window_buffer,
+		glisson_buffer,
 	};
 
-	struct GfParam
+	struct gf_param
 	{
 		float base = 0;
 		float random = 0;
 		float offset = 0;
 		float value = 0;
-		GfBufferMode mode = GfBufferMode::normal;
+		gf_buffer_mode mode = gf_buffer_mode::normal;
 	};
 
 
-	struct gfIoConfig
+	static bool param_reflection(std::string param, gf_param_name& out_param_name, gf_param_type& out_param_type)
 	{
-		//Outputs
-		double** grainOutput = nullptr;
-		double** grainState = nullptr;
-		double** grainProgress = nullptr;
-		double** grainPlayhead = nullptr;
-		double** grainAmp = nullptr;
-		double** grainEnvelope = nullptr;
-		double** grainBufferChannel = nullptr;
-		double** grainStreamChannel = nullptr;
-
-		//Inputs
-		double** grainClock = nullptr;
-		double** traversalPhasor = nullptr;
-		double** fm = nullptr;
-		double** am = nullptr;
-
-		int grainClockChans;
-		int traversalPhasorChans;
-		int fmChans;
-		int amChans;
-
-		bool livemode = 0;
-		int blockSize = 0;
-		int samplerate = 1;
-	};
-
-	static bool ParamReflection(std::string param, GfParamName& out_ParamName, GfParamType& out_ParamType){
 		//Find and remove param types 
-		out_ParamType =  GfParamType::ERR;
-		if (auto pos = param.find("Random"); pos != std::string::npos){
-			out_ParamType = GfParamType::random;
+		out_param_type = gf_param_type::ERR;
+		if (const auto pos = param.find("Random"); pos != std::string::npos)
+		{
+			out_param_type = gf_param_type::random;
 			param.erase(pos, 6);
 		}
-		else if (auto pos = param.find("Offset"); pos!= std::string::npos){
-			out_ParamType = GfParamType::offset;
+		else if (const auto pos = param.find("Offset"); pos != std::string::npos)
+		{
+			out_param_type = gf_param_type::offset;
 			param.erase(pos, 6);
 		}
-		else out_ParamType = GfParamType::base;
-		if(out_ParamType == GfParamType::ERR) return false;
+		else out_param_type = gf_param_type::base;
+		if (out_param_type == gf_param_type::ERR) return false;
 
-		out_ParamName =  GfParamName::ERR;
-		if ( param == "delay"){out_ParamName = GfParamName::delay;}
-		else if ( param == "rate"){out_ParamName = GfParamName::rate;}
-		else if ( param == "window"){out_ParamName = GfParamName::window;}
-		else if ( param == "rate"){out_ParamName = GfParamName::rate;}
-		else if ( param == "amp"){out_ParamName = GfParamName::amplitude;}
-		else if ( param == "space"){out_ParamName = GfParamName::space;}
-		else if ( param == "envelopePosition"){out_ParamName = GfParamName::envelopePosition;}
-		else if ( param == "nEnvelopes"){out_ParamName = GfParamName::nEnvelopes;}
-		else if ( param == "direction"){out_ParamName = GfParamName::direction;}
-		else if ( param == "startPoint"){out_ParamName = GfParamName::startPoint;}
-		else if ( param == "stopPoint"){out_ParamName = GfParamName::stopPoint;}
-		else if ( param == "rateQuantizeSemi"){out_ParamName = GfParamName::rateQuantizeSemi;}
-		else if ( param == "loopMode"){out_ParamName = GfParamName::loopMode;}
-		else if ( param == "channel"){out_ParamName = GfParamName::channel;}	
+		out_param_name = gf_param_name::ERR;
+		if (param == "delay") { out_param_name = gf_param_name::delay; }
+		else if (param == "rate") { out_param_name = gf_param_name::rate; }
+		else if (param == "window") { out_param_name = gf_param_name::window; }
+		else if (param == "rate") { out_param_name = gf_param_name::rate; }
+		else if (param == "amp") { out_param_name = gf_param_name::amplitude; }
+		else if (param == "space") { out_param_name = gf_param_name::space; }
+		else if (param == "envelopePosition") { out_param_name = gf_param_name::envelope_position; }
+		else if (param == "nEnvelopes") { out_param_name = gf_param_name::n_envelopes; }
+		else if (param == "direction") { out_param_name = gf_param_name::direction; }
+		else if (param == "startPoint") { out_param_name = gf_param_name::start_point; }
+		else if (param == "stopPoint") { out_param_name = gf_param_name::stop_point; }
+		else if (param == "rateQuantizeSemi") { out_param_name = gf_param_name::rate_quantize_semi; }
+		else if (param == "loopMode") { out_param_name = gf_param_name::loop_mode; }
+		else if (param == "channel") { out_param_name = gf_param_name::channel; }
 		//These cases are converted internally to other parameters 
-		else if (param == "transpose") { out_ParamName = GfParamName::transpose; }
-		else if (param == "glissonSt") { out_ParamName = GfParamName::glissonSt; }
-		else if (param == "stream") { out_ParamName = GfParamName::stream; }
+		else if (param == "transpose") { out_param_name = gf_param_name::transpose; }
+		else if (param == "glissonSt") { out_param_name = gf_param_name::glisson_st; }
+		else if (param == "stream") { out_param_name = gf_param_name::stream; }
 
 
-	
-		if(out_ParamName == GfParamName::ERR) return false;
+		if (out_param_name == gf_param_name::ERR) return false;
 
 		return true;
 	};
-
-
-
-
-
-
-
 }

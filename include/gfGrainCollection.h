@@ -3,262 +3,452 @@
 #include "gfParam.h"
 #include <memory>
 
-namespace Grainflow{
-    template<typename T, size_t INTERNALBLOCK>
-    class GfGrainCollection{
-        private:
-        std::unique_ptr<GfGrain<T, INTERNALBLOCK>[]> grains;
-        GfIBufferReader<T> bufferReader;
-        int _grainCount = 0;
-        int _activeGrains = 0;
-        int _nstreams = 0;
-        bool _autoOverlap = true;
+namespace Grainflow
+{
+	template <typename T, size_t Internalblock>
+	class gf_grain_collection
+	{
+	private:
+		std::unique_ptr<gf_grain<T, Internalblock>[]> grains_;
+		gf_i_buffer_reader<T> buffer_reader_;
+		int grain_count_ = 0;
+		int active_grains_ = 0;
+		int nstreams_ = 0;
+		bool auto_overlap_ = true;
+
+	public:
+		int samplerate = 48000;
+
+		explicit gf_grain_collection(gf_i_buffer_reader<T> buffer_reader, int grain_count = 0);
+
+		~gf_grain_collection();
+
+		void resize(int grain_count);
+
+		[[nodiscard]] int grains() const;
+
+		gf_grain<T, Internalblock>* get_grain(int index);
 
 
-        public:
-        int samplerate = 48000;
+#pragma region DSP
+		// Processes all grain given an io config with the correct inputs and outputs  
+		void process(gf_io_config& io_config);
 
-        GfGrainCollection(GfIBufferReader<T> bufferReader, int grainCount = 0){
- 
-            this->bufferReader = bufferReader;
-            if (grainCount > 0) {
-                Resize(grainCount);
-            }
-        }
+#pragma endregion
 
-        ~GfGrainCollection(){
-            grains.release(); 
-        }
+#pragma region Params
 
-        void Resize(int grainCount){
-            _grainCount = grainCount;
-            grains.reset(new GfGrain<T,INTERNALBLOCK>[grainCount]);
-            for (int i = 0; i < grainCount; i++) {
-                grains[i].bufferReader = bufferReader;
-            }
-            SetActiveGrains(grainCount);
-        }
+		static void transform_params(gf_param_name& param_name, const gf_param_type& param_type, float& value);
 
-        int Grains(){
-            return _grainCount;
-        }
+		void param_set(int target, gf_param_name param_name, gf_param_type param_type, float value);
 
-        GfGrain<T, INTERNALBLOCK>* GetGrain(int index){
-            if (index >= _grainCount) return nullptr;
-            return &grains[index];
-        }
+		GF_RETURN_CODE param_set(int target, const std::string& reflection_string, float value);
 
+		void channel_param_set(int channel, gf_param_name param_name, gf_param_type param_type, float value);
 
-        #pragma region DSP
-        // Proccesses all grain given an io config with the correct inputs and outputs  
-        void Process(gfIoConfig &ioConfig){
-            for (int g = 0; g < _activeGrains; g++){
-                grains.get()[g].Process(ioConfig); 
-            }
-        }
+		GF_RETURN_CODE channel_param_set(int channel, const std::string& reflection_string, float value);
 
-        #pragma endregion
+		GF_RETURN_CODE grain_param_func(gf_param_name param_name, gf_param_type param_type,
+		                                float (*func)(float, float, float),
+		                                float a, float b);
 
-        #pragma region Params
+		GF_RETURN_CODE grain_param_func(const std::string& reflection_string, float (*func)(float, float, float),
+		                                float a,
+		                                float b);
 
-        void TransformParams(GfParamName& paramName, GfParamType& paramType, float& value) {
-            if (paramType == GfParamType::mode) return; //Modes are not a value type and should not be effected 
-            switch (paramName) {
-            case GfParamName::transpose:
-                if (paramType == GfParamType::base) value = GfUtils::PitchToRate(value);
-                else value = GfUtils::PitchOffsetToRateOffset(value);
-                paramName = GfParamName::rate;
-                break;
-            case GfParamName::glissonSt:
-                value = GfUtils::PitchOffsetToRateOffset(value);
-                paramName = GfParamName::glisson;
-                break;
-            case GfParamName::amplitude:
-                if (paramType == GfParamType::base) break;
-                value = std::max(std::min(-value, 0.0f), -1.0f);
-                break;
-            default:
-                break;
-            }
-        }
+		float param_get(int target, gf_param_name param_name);
 
-        void ParamSet(int target, GfParamName paramName, GfParamType paramType, float value){
-            if (target > _grainCount+1) return;
-            TransformParams(paramName, paramType, value);
-            if (target <= 0){
-                for (int g = 0; g < _grainCount; g++){
-                    grains.get()[g].ParamSet(value, paramName, paramType);
-                    }
-                return;
-            }
-            grains.get()[target-1].ParamSet(value, paramName, paramType);
-        }
+		float param_get(int target, gf_param_name param_name, gf_param_type param_type);
 
-        GF_RETURN_CODE ParamSet(int target, std::string reflectionString, float value) {
-            GfParamName paramName;
-            GfParamType paramType;
-            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-            if (paramName == GfParamName::stream) {
-                StreamSet(target, (int)value);
-                return GF_RETURN_CODE::GF_SUCCESS;
-            }
-            ParamSet(target, paramName, paramType, value);
-            return GF_RETURN_CODE::GF_SUCCESS;
+		void set_density(int target, float value);
 
-        }
+		void set_active_grains(int n_grains);
 
-        void ChannelParamSet(int channel, GfParamName paramName, GfParamType paramType, float value){
-            for(int g =0; g < _grainCount; g++){
-                if (grains[g].channel.value != channel) continue;
-                ParamSet(g+1, paramName, paramType, value);
-            }
-        }
+		[[nodiscard]] int active_grains() const;
 
-        GF_RETURN_CODE ChannelParamSet(int channel, std::string reflectionString, float value) {
-            GfParamName paramName;
-            GfParamType paramType;
-            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-            ChannelParamSet(channel, paramName, paramType, value);
-            return GF_RETURN_CODE::GF_SUCCESS;
-        }
+		void set_auto_overlap(bool auto_overlap);
+#pragma endregion
 
-        GF_RETURN_CODE GrainParamFunc(GfParamName paramName, GfParamType paramType, float (*func)(float, float, float), float a, float b) {
-            for (int g = 0; g < _grainCount; g++) {
-                float value = (*func)(a, b, (float)g / _grainCount);
-                ParamSet(g, paramName, paramType, value);
-            }
-            return GF_RETURN_CODE::GF_SUCCESS;
-        }
+#pragma region STREAMS
 
-        GF_RETURN_CODE GrainParamFunc(std::string reflectionString, float (*func)(float, float, float), float a, float b) {
-            GfParamName paramName;
-            GfParamType paramType;
-            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-            return GrainParamFunc(paramName, paramType, func, a, b);
-        }
+		int streams() const;
 
+		GF_RETURN_CODE stream_param_set(int stream, gf_param_name param_name, gf_param_type param_type, float value);
 
-        float ParamGet(int target, GfParamName paramName){
-            if (target >= _grainCount) return 0;
-            if (target <= 1) return grains.get()[0].ParamGet(paramName);
-            return grains.get()[target-1].ParamGet(paramName);
-        }
+		GF_RETURN_CODE stream_param_set(const std::string& reflection_string, int stream, float value);
 
+		GF_RETURN_CODE stream_param_func(gf_param_name param_name, gf_param_type param_type,
+		                                 float (*func)(float, float, float),
+		                                 float a, float b);
 
-        float ParamGet(int target, GfParamName paramName, GfParamType paramType){
-            if (target > _grainCount) return 0;
-            if (target <= 1) return grains.get()[0].ParamGet(paramName, paramType);
-            return grains.get()[target-1].ParamGet(paramName, paramType);
-        }
+		GF_RETURN_CODE stream_param_func(const std::string& reflection_string, float (*func)(float, float, float),
+		                                 float a,
+		                                 float b);
 
-        void SetDensity(int target, float value){
-            if (target > 0) {
-			grains[target - 1].density = value;
+		void stream_set(gf_stream_set_type mode, int nstreams);
+
+		void stream_set(int grain, int stream_id);
+
+		int stream_get(int grain_index);;
+
+#pragma endregion
+
+		T* get_buffer(gf_buffers type, int index = 0);
+
+		int chanel_get(int index);
+
+		void channels_set_interleaved(int channels);
+
+		void channel_set(int index, int channel);
+
+		void channel_mode_set(int mode);
+	};
+
+	template <typename T, size_t Internalblock>
+	gf_grain_collection<T, Internalblock>::gf_grain_collection(gf_i_buffer_reader<T> buffer_reader,
+	                                                           const int grain_count)
+	{
+		this->buffer_reader_ = buffer_reader;
+		if (grain_count > 0)
+		{
+			resize(grain_count);
+		}
+	}
+
+	template <typename T, size_t Internalblock>
+	gf_grain_collection<T, Internalblock>::~gf_grain_collection()
+	{
+		grains_.release();
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::resize(int grain_count)
+	{
+		grain_count_ = grain_count;
+		grains_.reset(new gf_grain<T, Internalblock>[grain_count]);
+		for (int i = 0; i < grain_count; i++)
+		{
+			grains_[i].buffer_reader = buffer_reader_;
+		}
+		set_active_grains(grain_count);
+	}
+
+	template <typename T, size_t Internalblock>
+	int gf_grain_collection<T, Internalblock>::grains() const
+	{
+		return grain_count_;
+	}
+
+	template <typename T, size_t Internalblock>
+	gf_grain<T, Internalblock>* gf_grain_collection<T, Internalblock>::get_grain(int index)
+	{
+		if (index >= grain_count_) return nullptr;
+		return &grains_[index];
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::process(gf_io_config& io_config)
+	{
+		for (int g = 0; g < active_grains_; g++)
+		{
+			grains_.get()[g].process(io_config);
+		}
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::transform_params(gf_param_name& param_name,
+	                                                             const gf_param_type& param_type,
+	                                                             float& value)
+	{
+		if (param_type == gf_param_type::mode) return; //Modes are not a value type and should not be effected 
+		switch (param_name)
+		{
+		case gf_param_name::transpose:
+			if (param_type == gf_param_type::base) value = gf_utils::pitch_to_rate(value);
+			else value = gf_utils::pitch_offset_to_rate_offset(value);
+			param_name = gf_param_name::rate;
+			break;
+		case gf_param_name::glisson_st:
+			value = gf_utils::pitch_offset_to_rate_offset(value);
+			param_name = gf_param_name::glisson;
+			break;
+		case gf_param_name::amplitude:
+			if (param_type == gf_param_type::base) break;
+			value = std::max(std::min(-value, 0.0f), -1.0f);
+			break;
+		default:
+			break;
+		}
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::param_set(int target, gf_param_name param_name,
+	                                                      gf_param_type param_type,
+	                                                      float value)
+	{
+		if (target > grain_count_ + 1) return;
+		transform_params(param_name, param_type, value);
+		if (target <= 0)
+		{
+			for (int g = 0; g < grain_count_; g++)
+			{
+				grains_.get()[g].param_set(value, param_name, param_type);
+			}
 			return;
-			}
-            for (int g = 0; g < _grainCount; g++)
-                {
-                    grains[g].density = value;
-                }
-            }
+		}
+		grains_.get()[target - 1].param_set(value, param_name, param_type);
+	}
 
-        void SetActiveGrains(int nGrains){
-            if (nGrains <= 0) nGrains = 0;
-            else if (nGrains > _grainCount) nGrains = _grainCount;
-            _activeGrains = nGrains;
-            if (_autoOverlap){
-                auto windowOffset = 1.0f / (nGrains > 0 ? nGrains : 1);
-                ParamSet(0, GfParamName::window, GfParamType::offset, windowOffset);
-            }
-        }
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::param_set(const int target,
+	                                                                const std::string& reflection_string,
+	                                                                const float value)
+	{
+		gf_param_name param_name;
+		gf_param_type param_type;
+		if (const auto found_reflection = Grainflow::param_reflection(reflection_string, param_name, param_type); !
+			found_reflection)
+			return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+		if (param_name == gf_param_name::stream)
+		{
+			stream_set(target, static_cast<int>(value));
+			return GF_RETURN_CODE::GF_SUCCESS;
+		}
+		param_set(target, param_name, param_type, value);
+		return GF_RETURN_CODE::GF_SUCCESS;
+	}
 
-        int ActiveGrains(){
-            return _activeGrains;
-        }
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::channel_param_set(const int channel, const gf_param_name param_name,
+	                                                              const gf_param_type param_type,
+	                                                              const float value)
+	{
+		for (int g = 0; g < grain_count_; g++)
+		{
+			if (static_cast<int>(grains_[g].channel.value) != channel) continue;
+			param_set(g + 1, param_name, param_type, value);
+		}
+	}
 
-        void SetAutoOverlap(bool autoOverlap){
-            _autoOverlap = autoOverlap;
-            SetActiveGrains(_activeGrains);
-        }
-        #pragma endregion
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::channel_param_set(
+		const int channel, const std::string& reflection_string,
+		const float value)
+	{
+		gf_param_name param_name;
+		gf_param_type param_type;
+		if (const auto found_reflection = Grainflow::param_reflection(reflection_string, param_name, param_type); !
+			found_reflection)
+			return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+		channel_param_set(channel, param_name, param_type, value);
+		return GF_RETURN_CODE::GF_SUCCESS;
+	}
 
-        #pragma region STREAMS
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::grain_param_func(
+		const gf_param_name param_name, const gf_param_type param_type,
+		float (*func)(float, float, float), const float a, const float b)
+	{
+		for (int g = 0; g < grain_count_; g++)
+		{
+			const float value = (*func)(a, b, static_cast<float>(g) / static_cast<float>(grain_count_));
+			param_set(g, param_name, param_type, value);
+		}
+		return GF_RETURN_CODE::GF_SUCCESS;
+	}
 
-        int Streams(){return _nstreams;}
-        GF_RETURN_CODE StreamParamSet(int stream, GfParamName paramName, GfParamType paramType, float value){
-            if (stream > _nstreams || stream < 0) return GF_RETURN_CODE::GF_ERR;
-            for(int g =0; g < _grainCount; g++){
-                if (grains[g].stream != stream || stream == 0) continue;
-                ParamSet(g, paramName, paramType, value);
-            }
-            return GF_RETURN_CODE::GF_SUCCESS;
-        }
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::grain_param_func(const std::string& reflection_string,
+	                                                                       float (*func)(float, float, float),
+	                                                                       const float a,
+	                                                                       const float b)
+	{
+		gf_param_name param_name;
+		gf_param_type param_type;
+		if (const auto found_reflection = Grainflow::param_reflection(reflection_string, param_name, param_type); !
+			found_reflection)
+			return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+		return grain_param_func(param_name, param_type, func, a, b);
+	}
 
-        GF_RETURN_CODE StreamParamSet(std::string reflectionString, int stream, float value){
-            GfParamName paramName;
-			GfParamType paramType;
-			auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-			if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-			return StreamParamSet(stream, paramName, paramType, value);
-			
-        }
+	template <typename T, size_t Internalblock>
+	float gf_grain_collection<T, Internalblock>::param_get(const int target, gf_param_name param_name)
+	{
+		if (target >= grain_count_) return 0;
+		if (target <= 1) return grains_.get()[0].param_get(param_name);
+		return grains_.get()[target - 1].param_get(param_name);
+	}
 
-        GF_RETURN_CODE StreamParamFunc(GfParamName paramName, GfParamType paramType, float (*func)(float, float, float), float a, float b) {
-            for (int s = 0; s < _nstreams; s++)
-            {
-                float value = func(a, b, (float)s / _nstreams);
-                auto returnCode = StreamParamSet(s, paramName, paramType, value);
-                if (returnCode != GF_RETURN_CODE::GF_SUCCESS) return returnCode;
-            }
-            return GF_RETURN_CODE::GF_SUCCESS;
-        }
-        GF_RETURN_CODE StreamParamFunc(std::string reflectionString, float (*func)(float, float, float), float a, float b) {
-            GfParamName paramName;
-            GfParamType paramType;
-            auto foundReflection = Grainflow::ParamReflection(reflectionString, paramName, paramType);
-            if (!foundReflection) return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-            return StreamParamFunc(paramName, paramType, func, a, b);
+	template <typename T, size_t Internalblock>
+	float gf_grain_collection<T, Internalblock>::param_get(const int target, gf_param_name param_name,
+	                                                       gf_param_type param_type)
+	{
+		if (target > grain_count_) return 0;
+		if (target <= 1) return grains_.get()[0].param_get(param_name, param_type);
+		return grains_.get()[target - 1].param_get(param_name, param_type);
+	}
 
-        }
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::set_density(const int target, float value)
+	{
+		if (target > 0)
+		{
+			grains_[target - 1].density = value;
+			return;
+		}
+		for (int g = 0; g < grain_count_; g++)
+		{
+			grains_[g].density = value;
+		}
+	}
 
-        void StreamSet(GfStreamSetType mode, int nstreams){
-            _nstreams = nstreams;
-            if (mode == GfStreamSetType::manualStreams) return;
-            for (int g = 0; g< _grainCount; g++){
-				grains[g].StreamSet(_grainCount, mode, nstreams);
-			}
-        }
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::set_active_grains(int n_grains)
+	{
+		if (n_grains <= 0) n_grains = 0;
+		else if (n_grains > grain_count_) n_grains = grain_count_;
+		active_grains_ = n_grains;
+		if (auto_overlap_)
+		{
+			auto windowOffset = 1.0f / (n_grains > 0 ? n_grains : 1);
+			param_set(0, gf_param_name::window, gf_param_type::offset, windowOffset);
+		}
+	}
 
-        void StreamSet(int grain, int streamId) {
-            if (grain <= 0) return;
-            if (grain > _grainCount) return;
-            if (streamId <= 0) return;
-            grains[grain-1].StreamSet(streamId, GfStreamSetType::manualStreams, _nstreams);
-        }
+	template <typename T, size_t Internalblock>
+	int gf_grain_collection<T, Internalblock>::active_grains() const
+	{
+		return active_grains_;
+	}
 
-        int StreamGet(int grainIndex){
-            return (int)grains[grainIndex].stream;
-        };
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::set_auto_overlap(const bool auto_overlap)
+	{
+		auto_overlap_ = auto_overlap;
+		set_active_grains(active_grains_);
+	}
 
-        #pragma endregion
+	template <typename T, size_t Internalblock>
+	int gf_grain_collection<T, Internalblock>::streams() const
+	{
+		return nstreams_;
+	}
 
-        T* GetBuffer(GFBuffers type, int index = 0){return grains[index].GetBuffer(type);}
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_set(int stream, const gf_param_name param_name,
+	                                                                       const gf_param_type param_type,
+	                                                                       const float value)
+	{
+		if (stream > nstreams_ || stream < 0) return GF_RETURN_CODE::GF_ERR;
+		for (int g = 0; g < grain_count_; g++)
+		{
+			if (grains_[g].stream != stream || stream == 0) continue;
+			param_set(g, param_name, param_type, value);
+		}
+		return GF_RETURN_CODE::GF_SUCCESS;
+	}
 
-        int ChanelGet(int index){return grains[index].channel.base;}
-        void ChannelsSetInterleaved(int channels){
-            for (int g = 0; g < _grainCount; g++){
-                grains[g].channel.base = g % channels;
-            }
-        }
-        void ChannelSet(int index, int channel){grains[index].channel.base = channel;}
-        void ChannelModeSet(int mode){
-             for (int g = 0; g < _grainCount; g++){
-                grains[g].channel.random = mode;
-            }
-        }
-    };
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_set(
+		const std::string& reflection_string, const int stream,
+		const float value)
+	{
+		gf_param_name param_name;
+		gf_param_type param_type;
+		if (const auto found_reflection = Grainflow::param_reflection(reflection_string, param_name, param_type); !
+			found_reflection)
+			return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+		return stream_param_set(stream, param_name, param_type, value);
+	}
 
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_func(
+		const gf_param_name param_name, const gf_param_type param_type,
+		float (*func)(float, float, float), const float a, const float b)
+	{
+		for (int s = 0; s < nstreams_; s++)
+		{
+			const float value = func(a, b, static_cast<float>(s) / static_cast<float>(nstreams_));
+			if (const auto return_code = stream_param_set(s, param_name, param_type, value); return_code !=
+				GF_RETURN_CODE::GF_SUCCESS)
+				return return_code;
+		}
+		return GF_RETURN_CODE::GF_SUCCESS;
+	}
+
+	template <typename T, size_t Internalblock>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_func(const std::string& reflection_string,
+	                                                                        float (*func)(float, float, float),
+	                                                                        const float a,
+	                                                                        const float b)
+	{
+		gf_param_name param_name;
+		gf_param_type param_type;
+		if (const auto found_reflection = Grainflow::param_reflection(reflection_string, param_name, param_type); !
+			found_reflection)
+			return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
+		return stream_param_func(param_name, param_type, func, a, b);
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::stream_set(gf_stream_set_type mode, int nstreams)
+	{
+		nstreams_ = nstreams;
+		if (mode == gf_stream_set_type::manual_streams) return;
+		for (int g = 0; g < grain_count_; g++)
+		{
+			grains_[g].stream_set(grain_count_, mode, nstreams);
+		}
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::stream_set(const int grain, int stream_id)
+	{
+		if (grain <= 0) return;
+		if (grain > grain_count_) return;
+		if (stream_id <= 0) return;
+		grains_[grain - 1].stream_set(stream_id, gf_stream_set_type::manual_streams, nstreams_);
+	}
+
+	template <typename T, size_t Internalblock>
+	int gf_grain_collection<T, Internalblock>::stream_get(int grain_index)
+	{
+		return static_cast<int>(grains_[grain_index].stream);
+	}
+
+	template <typename T, size_t Internalblock>
+	T* gf_grain_collection<T, Internalblock>::get_buffer(gf_buffers type, int index)
+	{
+		return grains_[index].get_buffer(type);
+	}
+
+	template <typename T, size_t Internalblock>
+	int gf_grain_collection<T, Internalblock>::chanel_get(int index)
+	{
+		return grains_[index].channel.base;
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::channels_set_interleaved(const int channels)
+	{
+		for (int g = 0; g < grain_count_; g++)
+		{
+			grains_[g].channel.base = static_cast<float>(g % channels);
+		}
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::channel_set(int index, int channel)
+	{
+		grains_[index].channel.base = static_cast<float>(channel);
+	}
+
+	template <typename T, size_t Internalblock>
+	void gf_grain_collection<T, Internalblock>::channel_mode_set(int mode)
+	{
+		for (int g = 0; g < grain_count_; g++)
+		{
+			grains_[g].channel.random = static_cast<float>(mode);
+		}
+	}
 }

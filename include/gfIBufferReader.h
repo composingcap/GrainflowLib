@@ -1,24 +1,29 @@
-#pragma once 
-namespace Grainflow {
-	class GfBufferInfo {
+#pragma once
+#include "gfIoConfig.h"
+
+namespace Grainflow
+{
+	class gf_buffer_info
+	{
 	public:
-		int bufferFrames = 0;
-		float oneOverBufferFrames = 0;
-		float sampleRateAdjustment = 1;
-		int nchannels = 0;
+		int buffer_frames = 0;
+		float one_over_buffer_frames = 0;
+		float sample_rate_adjustment = 1;
+		int n_channels = 0;
 		int samplerate = 48000;
-		double oneOverSamplerate = 1;
+		double one_over_samplerate = 1;
 	};
-	template<typename T>
-	struct GfIBufferReader {
+
+	template <typename T>
+	struct gf_i_buffer_reader
+	{
 	public:
-		bool (*SampleParamBuffer)(T* buffer, GfParam* param, int grainId) = nullptr;
-		void (*SampleBuffer)(T* buffer, int channel, double* __restrict samples, double* positions, const int size) = nullptr;
-		void (*UpdateBufferInfo)(T* buffer, gfIoConfig ioConfig, GfBufferInfo* bufferInfo) = nullptr;
-		void (*SampleEnvelope)(T* buffer, const bool useDefault, const int nEnvelopes, const float env2dPos, double* __restrict samples, const double* __restrict grainClock, const int size) = nullptr;
+		bool (*sample_param_buffer)(T* buffer, gf_param* param, int grain_id) = nullptr;
+		void (*sample_buffer)(T* buffer, int channel, double* __restrict samples, const double* positions,
+		                      const int size) = nullptr;
+		void (*update_buffer_info)(T* buffer, const gf_io_config& io_config, gf_buffer_info* buffer_info) = nullptr;
+		void (*sample_envelope)(T* buffer, const bool use_default, const int n_envelopes, const float env2d_pos,
+		                        double* __restrict samples, const double* __restrict grain_clock,
+		                        const int size) = nullptr;
 	};
-
-
-
-
 }
