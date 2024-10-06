@@ -1,0 +1,147 @@
+#pragma once
+#include <mutex>
+#include <vector>
+#include <random>
+#include <algorithm>
+
+#include "gfEnvelopes.h"
+#include "gfUtils.h"
+
+namespace Grainflow
+{
+	template <size_t InternalBlock>
+	class gf_panner
+	{
+	private:
+		int channels_ = 0;
+		std::atomic<int> output_channels_ = 0;
+		float positions_[InternalBlock] = {0};
+		std::vector<double> last_samples_ = {0};
+		std::vector<float> last_position_ = {0};
+		std::mutex lock_;
+
+		static int detect_one_transition(const double* __restrict input_stream, const int block_size,
+		                                 std::vector<double>& last_sample, const int channel)
+		{
+			if (last_sample[channel] - input_stream[0] < -0.5f)
+			{
+				last_sample[channel] = input_stream[block_size - 1];
+				return 0;
+			}
+			last_sample[channel] = input_stream[block_size - 1];
+			for (int i = 1; i < block_size; ++i)
+			{
+				if (input_stream[i - 1] - input_stream[i] < -0.5f) return i;
+			}
+			return block_size;
+		}
+
+		static void determine_pan_position(const int idx, const size_t block_size, const int channels,
+		                                   const float pan_center,
+		                                   const float pan_spread, const float quantization,
+		                                   std::vector<float>& last_positions, const int channel,
+		                                   const int output_channels,
+		                                   float* __restrict out_pan_positions)
+		{
+			const float last_position = last_positions[channel];
+			auto position = gf_utils::deviate(pan_center, pan_spread);
+			const double n_outputs = output_channels;
+			position = static_cast<float>(std::max(
+				gf_utils::mod(position + static_cast<float>(n_outputs) * 5.0f, n_outputs - 1),
+				0.0));
+			//position = static_cast<float>(gf_utils::round(position, quantization));
+
+			for (int i = 0; i < block_size; i++)
+			{
+				const auto new_pos = static_cast<int>(i > idx);
+				out_pan_positions[i] = position * new_pos + last_position * (1.0f - new_pos);
+			}
+
+			last_positions[channel] = out_pan_positions[block_size - 1];
+		}
+
+		static void perform_pan(const double* __restrict input_stream, const float* __restrict positions,
+		                        const size_t block_size, double** __restrict output_stream, const size_t block_offset,
+		                        const int output_channels)
+		{
+			for (int j = 0; j < block_size; j++)
+			{
+				const auto position = positions[j];
+				const auto low = static_cast<int>(position);
+				const auto high = (low + 1) % output_channels;
+				const auto mix = position - low;
+				output_stream[low][block_offset + j] += input_stream[j] * gf_envelopes::quarter_sine_wave[static_cast<
+						int>
+					((1 - mix) * 4095)];
+				output_stream[high][block_offset + j] += input_stream[j] * gf_envelopes::quarter_sine_wave[static_cast<
+					int>((mix) * 4095)];
+			}
+		}
+
+	public:
+		std::atomic<float> pan_position = 0.5;
+		std::atomic<float> pan_spread = 0.25;
+		std::atomic<float> pan_quantization;
+
+		gf_panner(const int in_channels, const int out_channels = 2)
+		{
+			set_channels(in_channels, out_channels);
+		}
+
+		void set_channels(const int channels, const int output_channels = 2)
+		{
+			lock_.lock();
+			channels_ = channels;
+			output_channels_ = output_channels;
+			if (channels != last_samples_.size())
+			{
+				last_samples_.resize(channels);
+				std::fill(last_samples_.begin(), last_samples_.end(), 0);
+				last_position_.resize(channels);
+				std::fill(last_position_.begin(), last_position_.end(), 0);
+			}
+			lock_.unlock();
+		}
+
+
+		std::vector<float> get_positions() const
+		{
+			std::vector<float> positions;
+			positions.resize(last_position_.size());
+			for (int i = 0; i < positions.size(); i++)
+			{
+				positions[i] = last_position_[i];
+			}
+			return positions;
+		}
+
+
+		void process(double** __restrict grains, double** __restrict grain_states, double** __restrict output_stream,
+		             const int block_size)
+		{
+			if (!lock_.try_lock())return;
+			const auto position = pan_position.load();
+			const auto spread = pan_spread.load();
+			const auto quantization = pan_quantization.load();
+			const auto blocks = block_size / InternalBlock;
+			const auto output_chans = output_channels_.load();
+			for (int ch = 0; ch < channels_; ++ch)
+			{
+				for (int i = 0; i < blocks; ++i)
+				{
+					auto this_block = i * InternalBlock;
+					auto input = &grains[ch][this_block];
+					auto states = &grain_states[ch][this_block];
+					auto idx = detect_one_transition(states, InternalBlock, last_samples_, ch);
+
+					determine_pan_position(idx, InternalBlock, channels_, position, spread, quantization,
+					                       last_position_, ch, output_chans, positions_);
+
+					perform_pan(input, positions_, InternalBlock, output_stream,
+					            this_block, output_chans);
+				}
+			}
+			lock_.unlock();
+		}
+	};
+}
