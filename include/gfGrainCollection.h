@@ -71,7 +71,7 @@ namespace Grainflow
 
 #pragma region STREAMS
 
-		int streams() const;
+		[[nodiscard]] int streams() const;
 
 		GF_RETURN_CODE stream_param_set(int stream, gf_param_name param_name, gf_param_type param_type, float value);
 
@@ -122,7 +122,7 @@ namespace Grainflow
 	}
 
 	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::resize(int grain_count)
+	void gf_grain_collection<T, Internalblock>::resize(const int grain_count)
 	{
 		grain_count_ = grain_count;
 		grains_.reset(new gf_grain<T, Internalblock>[grain_count]);
@@ -438,13 +438,13 @@ namespace Grainflow
 	}
 
 	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::channel_set(int index, int channel)
+	void gf_grain_collection<T, Internalblock>::channel_set(int index, const int channel)
 	{
 		grains_[index].channel.base = static_cast<float>(channel);
 	}
 
 	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::channel_mode_set(int mode)
+	void gf_grain_collection<T, Internalblock>::channel_mode_set(const int mode)
 	{
 		for (int g = 0; g < grain_count_; g++)
 		{
