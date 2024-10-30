@@ -9,7 +9,13 @@
 
 namespace Grainflow
 {
-	template <size_t InternalBlock>
+	static enum class gf_pan_mode
+	{
+		bipolar = 0,
+		unipolar = 1,
+		stereo = 2
+	};
+	template <size_t InternalBlock, gf_pan_mode pan_mode>
 	class gf_panner
 	{
 	private:
@@ -44,12 +50,22 @@ namespace Grainflow
 		                                   float* __restrict out_pan_positions)
 		{
 			const float last_position = last_positions[channel];
-			auto position = gf_utils::deviate(pan_center, pan_spread);
+			float position = 0;
+			switch (pan_mode) {
+			case gf_pan_mode::bipolar:
+				position = gf_utils::deviate(pan_center, pan_spread);
+				break;
+			case gf_pan_mode::unipolar:
+				position = gf_utils::random_range(pan_center, pan_center+pan_spread);
+				break;
+			case gf_pan_mode::stereo:
+				position = std::clamp(gf_utils::deviate(pan_center, pan_spread*0.5f),0.0f,1.0f);
+			}
 			const double n_outputs = output_channels;
 			position = static_cast<float>(std::max(
-				gf_utils::mod(position + static_cast<float>(n_outputs) * 5.0f, n_outputs - 1),
+				gf_utils::mod(position + n_outputs * 5, n_outputs),
 				0.0));
-			//position = static_cast<float>(gf_utils::round(position, quantization));
+			position = static_cast<float>(gf_utils::round(position, quantization));
 
 			for (int i = 0; i < block_size; i++)
 			{
@@ -79,9 +95,12 @@ namespace Grainflow
 		}
 
 	public:
+
+
+
 		std::atomic<float> pan_position = 0.5;
 		std::atomic<float> pan_spread = 0.25;
-		std::atomic<float> pan_quantization;
+		std::atomic<float> pan_quantization = 0;
 
 		gf_panner(const int in_channels, const int out_channels = 2)
 		{
