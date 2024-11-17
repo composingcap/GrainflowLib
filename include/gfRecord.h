@@ -1,0 +1,74 @@
+#include "maxBufferReader.h"
+
+namespace Grainflow
+{
+	template<typename T, size_t INTERNALBLOCK>
+	class gfRecorder {
+	private:
+		gf_io_config config_{};
+		gf_buffer_info buffer_info_{};
+		size_t write_position_ = 0;
+		double write_position_norm_ = 0.0;
+		double write_position_ms_ = 0.0;
+		std::array<double, INTERNALBLOCK> temp_{0.0};
+		gf_i_buffer_reader<T> buffer_reader_{};
+	public:
+		bool sync = false;
+		bool freeze = false;
+		bool state = false;
+		float overdub = 0;
+		size_t samplerate = 48000;
+
+	public:
+		gfRecorder(gf_i_buffer_reader<T> buffer_reader) {
+			buffer_reader_ = buffer_reader;
+			config_.livemode = true;		}
+		~gfRecorder() {
+
+		}
+
+		double write_position_norm() { return write_position_norm_; }
+		double write_position_ms() { return write_position_ms_; }
+		double write_position_samps() { return write_position_; }
+
+		void process(double** __restrict input, const double time_override, T* buffer, int frames, int channels, double* __restrict recorded_head_out) {
+
+			const auto blocks = frames / INTERNALBLOCK;
+			if (!state) {
+				for (int b = 0; b < blocks; ++b) {
+					for (int i = 0; i < INTERNALBLOCK; ++i) {
+						recorded_head_out[b * INTERNALBLOCK + i] = static_cast<float>(write_position_) / buffer_info_.buffer_frames;
+					}
+				}
+				return;
+			}
+
+			buffer_reader_.update_buffer_info(buffer, config_, &buffer_info_);
+			if (sync) {
+				write_position_ = gf_utils::mod(time_override, 1) * buffer_info_.buffer_frames;
+			}
+			if (buffer_info_.buffer_frames == 0) return;
+			for (int b = 0; b < blocks; ++b) {
+				for (int c = 0; c < channels; ++c) {
+					buffer_reader_.write_buffer(buffer, c, &(input[c][b * INTERNALBLOCK]), temp_.data(), write_position_, overdub, INTERNALBLOCK);
+				}
+
+				if (!freeze) {
+					for (int i = 0; i < INTERNALBLOCK; ++i) {
+						recorded_head_out[b * INTERNALBLOCK + i] = static_cast<float>((write_position_ + i) % buffer_info_.buffer_frames) / buffer_info_.buffer_frames;
+					}
+					write_position_norm_ = static_cast<float>((write_position_ + INTERNALBLOCK) % buffer_info_.buffer_frames) / buffer_info_.buffer_frames;
+					write_position_ms_ = (write_position_ + INTERNALBLOCK) * 1000 / samplerate;
+				}
+				else {
+					for (int i = 0; i < INTERNALBLOCK; ++i) {
+						recorded_head_out[b * INTERNALBLOCK + i] = write_position_norm_;
+					}
+				}
+				write_position_ = (write_position_ + INTERNALBLOCK) % buffer_info_.buffer_frames;
+			}
+		}
+	};
+
+
+}

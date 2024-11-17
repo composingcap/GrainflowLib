@@ -3,7 +3,7 @@
 
 namespace Grainflow
 {
-	class gf_buffer_info
+	struct gf_buffer_info
 	{
 	public:
 		int buffer_frames = 0;

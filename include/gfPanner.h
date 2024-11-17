@@ -9,7 +9,7 @@
 
 namespace Grainflow
 {
-	static enum class gf_pan_mode
+	enum class gf_pan_mode
 	{
 		bipolar = 0,
 		unipolar = 1,
