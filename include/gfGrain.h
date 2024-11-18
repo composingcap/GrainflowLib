@@ -125,6 +125,7 @@ namespace Grainflow
 				process_grain_clock(grain_clock, grain_progress, window_val, window_portion, Blocksize);
 				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize);
 				increment(fm, grain_progress, sample_id_temp_, temp_double_, glisson_temp_, Blocksize);
+				if (sample_id_temp_[0]!= sample_id_temp_[0]) continue; //Nan check
 				buffer_reader.sample_envelope(envelope_ref, use_default_envelope, n_envelopes.value, envelope.value,
 				                              grain_envelope, grain_progress, Blocksize);
 				buffer_reader.sample_buffer(buffer_ref, channel.value, grain_output, sample_id_temp_, Blocksize);
@@ -422,10 +423,14 @@ namespace Grainflow
 		                      double* __restrict glisson_temp, const int size)
 		{
 			const int fold = loop_mode.base > 1.1f ? 1 : 0;
-			const double start = std::min(static_cast<double>(buffer_info.buffer_frames) * start_point.value,
+			const double start_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * start_point.value,
 			                              static_cast<double>(buffer_info.buffer_frames) - 1);
-			const double end = std::min(static_cast<double>(buffer_info.buffer_frames) * stop_point.value,
+			const double end_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * stop_point.value,
 			                            static_cast<double>(buffer_info.buffer_frames) - 1);
+
+			const double start = std::min(start_tmp, end_tmp); //Need to check the order in case a user feeds us these out of order
+			const double end = std::max(start_tmp, end_tmp);
+
 
 			for (int i = 0; i < size; i++)
 			{
@@ -477,23 +482,23 @@ namespace Grainflow
 			{
 			case gf_stream_set_type::automatic_streams:
 				{
-					stream = g_ % nstreams;
+					stream = (g_) % (nstreams);
 					break;
 				}
 			case gf_stream_set_type::per_streams:
 				{
-					stream = g_ / nstreams;
+					stream = (g_) / (nstreams) ;
 					break;
 				}
 			case gf_stream_set_type::random_streams:
 				{
 					std::random_device rd;
-					stream = rd() % nstreams;
+					stream = rd() % (nstreams);
 					break;
 				}
 			case gf_stream_set_type::manual_streams:
 				{
-					stream = (max_grains - 1 + nstreams) % nstreams;
+					stream = (max_grains - 1 + nstreams) % (nstreams - 1);
 					break;
 				}
 			default:

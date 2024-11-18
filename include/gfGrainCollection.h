@@ -342,8 +342,8 @@ namespace Grainflow
 		if (stream > nstreams_ || stream < 0) return GF_RETURN_CODE::GF_ERR;
 		for (int g = 0; g < grain_count_; g++)
 		{
-			if (grains_[g].stream != stream || stream == 0) continue;
-			param_set(g, param_name, param_type, value);
+			if (grains_[g].stream != (stream - 1) || stream == 0) continue;
+			param_set(g+1, param_name, param_type, value);
 		}
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
