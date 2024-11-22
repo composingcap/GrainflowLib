@@ -1,5 +1,5 @@
 #pragma once
-#include "GfGrain.h"
+#include "gfGrain.h"
 #include "gfParam.h"
 #include <memory>
 
