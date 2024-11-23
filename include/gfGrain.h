@@ -125,9 +125,9 @@ namespace Grainflow
 				process_grain_clock(grain_clock, grain_progress, window_val, window_portion, Blocksize);
 				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize);
 				increment(fm, grain_progress, sample_id_temp_, temp_double_, glisson_temp_, Blocksize);
-				if (sample_id_temp_[0]!= sample_id_temp_[0]) continue; //Nan check
 				buffer_reader.sample_envelope(envelope_ref, use_default_envelope, n_envelopes.value, envelope.value,
 				                              grain_envelope, grain_progress, Blocksize);
+				if (sample_id_temp_[0] != sample_id_temp_[0]) continue; //Nan check
 				buffer_reader.sample_buffer(buffer_ref, channel.value, grain_output, sample_id_temp_, Blocksize);
 				expand_value_table(valueFrames, grain_state, amp_temp_, density_temp_, Blocksize);
 				output_block(sample_id_temp_, amp_temp_, density_temp_, buffer_info.one_over_buffer_frames, stream,
