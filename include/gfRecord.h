@@ -8,13 +8,12 @@ namespace Grainflow
 		gf_io_config config_{};
 		gf_buffer_info buffer_info_{};
 		size_t write_position_ = 0;
-		double write_position_norm_ = 0.0;
-		double write_position_ms_ = 0.0;
-		int write_position_samps;
 		std::array<double, INTERNALBLOCK> temp_{0.0};
 		gf_i_buffer_reader<T> buffer_reader_{};
-		bool latch_ = false;;
 	public:
+		double write_position_norm = 0.0;
+		double write_position_ms = 0.0;
+		int write_position_samps;
 		bool sync = false;
 		bool freeze = false;
 		bool state = false;
@@ -30,11 +29,9 @@ namespace Grainflow
 		}
 
 		void get_position(double& position_samps, double& position_norm, double& position_ms) {
-			latch_ = true;
 			position_samps = write_position_samps;
-			position_norm = write_position_norm_;
-			position_ms = write_position_ms_;
-			latch_ = false;
+			position_norm = write_position_norm;
+			position_ms = write_position_ms;
 		}
 
 		void process(double** __restrict input, const double time_override, T* buffer, int frames, int channels, double* __restrict recorded_head_out) {
@@ -63,20 +60,19 @@ namespace Grainflow
 					for (int i = 0; i < INTERNALBLOCK; ++i) {
 						recorded_head_out[b * INTERNALBLOCK + i] = static_cast<float>((write_position_ + i) % buffer_info_.buffer_frames) / buffer_info_.buffer_frames;
 					}
-
+					write_position_ = (write_position_ + INTERNALBLOCK) % buffer_info_.buffer_frames;
+					write_position_samps = write_position_;
+					write_position_norm = static_cast<float>((write_position_samps + INTERNALBLOCK) % buffer_info_.buffer_frames) / buffer_info_.buffer_frames;
+					write_position_ms = (write_position_samps + INTERNALBLOCK) * 1000 / samplerate;
 				}
 				else {
 					for (int i = 0; i < INTERNALBLOCK; ++i) {
-						recorded_head_out[b * INTERNALBLOCK + i] = write_position_norm_;
+						recorded_head_out[b * INTERNALBLOCK + i] = write_position_norm;
 					}
+					write_position_ = (write_position_ + INTERNALBLOCK) % buffer_info_.buffer_frames;
 				}
-				write_position_ = (write_position_ + INTERNALBLOCK) % buffer_info_.buffer_frames;
 			}
-			if (!latch_) {
-				write_position_samps = write_position_;
-				write_position_norm_ = static_cast<float>((write_position_samps + INTERNALBLOCK) % buffer_info_.buffer_frames) / buffer_info_.buffer_frames;
-				write_position_ms_ = (write_position_samps + INTERNALBLOCK) * 1000 / samplerate;
-			}
+
 		}
 	};
 
