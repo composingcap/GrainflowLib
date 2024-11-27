@@ -40,6 +40,7 @@ namespace Grainflow
 		bool reset_pending_;
 		std::random_device rd_;
 		int g_ = 0;
+		bool enabled_internal_;
 
 	public:
 		int buffer_samplerate = 48000;
@@ -48,6 +49,8 @@ namespace Grainflow
 		double source_sample = 0;
 		size_t stream = 0;
 		float density = 1;
+		bool enabled;
+
 
 		gf_param delay;
 		gf_param window;
@@ -92,6 +95,7 @@ namespace Grainflow
 
 		inline void process(gf_io_config& io_config)
 		{
+			if (!enabled && !enabled_internal_) return;
 			if (io_config.block_size < Blocksize) return;
 			buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
 			buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
@@ -124,6 +128,7 @@ namespace Grainflow
 
 				process_grain_clock(grain_clock, grain_progress, window_val, window_portion, Blocksize);
 				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize);
+				if (!enabled_internal_) return;
 				increment(fm, grain_progress, sample_id_temp_, temp_double_, glisson_temp_, Blocksize);
 				buffer_reader.sample_envelope(envelope_ref, use_default_envelope, n_envelopes.value, envelope.value,
 				                              grain_envelope, grain_progress, Blocksize);
@@ -304,7 +309,7 @@ namespace Grainflow
 			sample_density();
 			sample_direction();
 
-
+			enabled_internal_ = enabled;
 			int i = 1;
 			value_table_[i].delay = delay.value * 0.001 * buffer_samplerate;
 			value_table_[i].rate = rate.value;
@@ -424,11 +429,12 @@ namespace Grainflow
 		{
 			const int fold = loop_mode.base > 1.1f ? 1 : 0;
 			const double start_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * start_point.value,
-			                              static_cast<double>(buffer_info.buffer_frames) - 1);
+			                                  static_cast<double>(buffer_info.buffer_frames) - 1);
 			const double end_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * stop_point.value,
-			                            static_cast<double>(buffer_info.buffer_frames) - 1);
+			                                static_cast<double>(buffer_info.buffer_frames) - 1);
 
-			const double start = std::min(start_tmp, end_tmp); //Need to check the order in case a user feeds us these out of order
+			const double start = std::min(start_tmp, end_tmp);
+			//Need to check the order in case a user feeds us these out of order
 			const double end = std::max(start_tmp, end_tmp);
 
 
@@ -487,7 +493,7 @@ namespace Grainflow
 				}
 			case gf_stream_set_type::per_streams:
 				{
-					stream = (g_) / (nstreams) ;
+					stream = (g_) / (nstreams);
 					break;
 				}
 			case gf_stream_set_type::random_streams:

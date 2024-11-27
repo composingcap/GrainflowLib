@@ -149,7 +149,7 @@ namespace Grainflow
 	template <typename T, size_t Internalblock>
 	void gf_grain_collection<T, Internalblock>::process(gf_io_config& io_config)
 	{
-		for (int g = 0; g < active_grains_; g++)
+		for (int g = 0; g < grain_count_; g++)
 		{
 			grains_.get()[g].process(io_config);
 		}
@@ -313,6 +313,10 @@ namespace Grainflow
 			auto windowOffset = 1.0f / (n_grains > 0 ? n_grains : 1);
 			param_set(0, gf_param_name::window, gf_param_type::offset, windowOffset);
 		}
+		for (int g = 0; g < grain_count_; g++)
+		{
+			grains_[g].enabled = g < active_grains_;
+		}
 	}
 
 	template <typename T, size_t Internalblock>
@@ -343,7 +347,7 @@ namespace Grainflow
 		for (int g = 0; g < grain_count_; g++)
 		{
 			if (grains_[g].stream != (stream - 1) || stream == 0) continue;
-			param_set(g+1, param_name, param_type, value);
+			param_set(g + 1, param_name, param_type, value);
 		}
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
