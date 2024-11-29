@@ -27,6 +27,8 @@ namespace Grainflow
 		rate_quantize_semi,
 		loop_mode,
 		channel,
+		density,
+
 		//These do not have param structs
 		transpose,
 		glisson_st,
@@ -133,6 +135,7 @@ namespace Grainflow
 		else if (param == "rateQuantizeSemi") { out_param_name = gf_param_name::rate_quantize_semi; }
 		else if (param == "loopMode") { out_param_name = gf_param_name::loop_mode; }
 		else if (param == "channel") { out_param_name = gf_param_name::channel; }
+		else if (param == "density") { out_param_name = gf_param_name::density; }
 		//These cases are converted internally to other parameters 
 		else if (param == "transpose") { out_param_name = gf_param_name::transpose; }
 		else if (param == "glissonSt") { out_param_name = gf_param_name::glisson_st; }

@@ -60,8 +60,6 @@ namespace Grainflow
 
 		float param_get(int target, gf_param_name param_name, gf_param_type param_type);
 
-		void set_density(int target, float value);
-
 		void set_active_grains(int n_grains);
 
 		[[nodiscard]] int active_grains() const;
@@ -288,19 +286,7 @@ namespace Grainflow
 		return grains_.get()[target - 1].param_get(param_name, param_type);
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::set_density(const int target, float value)
-	{
-		if (target > 0)
-		{
-			grains_[target - 1].density = value;
-			return;
-		}
-		for (int g = 0; g < grain_count_; g++)
-		{
-			grains_[g].density = value;
-		}
-	}
+
 
 	template <typename T, size_t Internalblock>
 	void gf_grain_collection<T, Internalblock>::set_active_grains(int n_grains)

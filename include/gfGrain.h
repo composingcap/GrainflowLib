@@ -48,7 +48,6 @@ namespace Grainflow
 		bool use_default_envelope = true;
 		double source_sample = 0;
 		size_t stream = 0;
-		float density = 1;
 		bool enabled;
 
 
@@ -68,6 +67,7 @@ namespace Grainflow
 		gf_param start_point;
 		gf_param stop_point;
 		gf_param channel;
+		gf_param density;
 
 		/// Links to buffers - this can likely use a template argument and would be better
 		T* buffer_ref = nullptr;
@@ -91,6 +91,7 @@ namespace Grainflow
 			rate_quantize_semi.value = 1;
 			n_envelopes.value = 1;
 			glisson_rows.value = 1;
+			density.base = 1;
 		}
 
 		inline void process(gf_io_config& io_config)
@@ -179,6 +180,8 @@ namespace Grainflow
 				return &channel;
 			case (gf_param_name::glisson_position):
 				return &glisson_position;
+			case (gf_param_name::density):
+				return &density;
 			default:
 				return nullptr;
 			}
@@ -372,7 +375,7 @@ namespace Grainflow
 		inline void sample_density()
 		{
 			std::random_device rd;
-			grain_enabled_ = density > (rd() % 10000) * 0.0001f;
+			grain_enabled_ = density.base > (rd() % 10000) * 0.0001f;
 		}
 
 		static inline void expand_value_table(const gf_value_table* __restrict value_frames,
