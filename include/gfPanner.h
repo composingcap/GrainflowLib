@@ -15,6 +15,7 @@ namespace Grainflow
 		unipolar = 1,
 		stereo = 2
 	};
+
 	template <size_t InternalBlock, gf_pan_mode pan_mode>
 	class gf_panner
 	{
@@ -51,15 +52,16 @@ namespace Grainflow
 		{
 			const float last_position = last_positions[channel];
 			float position = 0;
-			switch (pan_mode) {
+			switch (pan_mode)
+			{
 			case gf_pan_mode::bipolar:
 				position = gf_utils::deviate(pan_center, pan_spread);
 				break;
 			case gf_pan_mode::unipolar:
-				position = gf_utils::random_range(pan_center, pan_center+pan_spread);
+				position = gf_utils::random_range(pan_center, pan_center + pan_spread);
 				break;
 			case gf_pan_mode::stereo:
-				position = std::clamp(gf_utils::deviate(pan_center, pan_spread*0.5f),0.0f,1.0f);
+				position = std::clamp(gf_utils::deviate(pan_center, pan_spread * 0.5f), 0.0f, 1.0f);
 			}
 			const double n_outputs = output_channels;
 			position = static_cast<float>(std::max(
@@ -95,9 +97,6 @@ namespace Grainflow
 		}
 
 	public:
-
-
-
 		std::atomic<float> pan_position = 0.5;
 		std::atomic<float> pan_spread = 0.25;
 		std::atomic<float> pan_quantization = 0;
@@ -138,12 +137,12 @@ namespace Grainflow
 		void process(double** __restrict grains, double** __restrict grain_states, double** __restrict output_stream,
 		             const int block_size)
 		{
-			if (!lock_.try_lock())return;
 			const auto position = pan_position.load();
 			const auto spread = pan_spread.load();
 			const auto quantization = pan_quantization.load();
 			const auto blocks = block_size / InternalBlock;
 			const auto output_chans = output_channels_.load();
+
 			for (int ch = 0; ch < channels_; ++ch)
 			{
 				for (int i = 0; i < blocks; ++i)
@@ -151,6 +150,11 @@ namespace Grainflow
 					auto this_block = i * InternalBlock;
 					auto input = &grains[ch][this_block];
 					auto states = &grain_states[ch][this_block];
+
+					const double absSum = std::transform_reduce(states, &states[InternalBlock], 0,
+					                                            std::plus<double>{},
+					                                            static_cast<double (*)(double)>(std::fabs));
+					if (absSum <= 0.0) return;
 					auto idx = detect_one_transition(states, InternalBlock, last_samples_, ch);
 
 					determine_pan_position(idx, InternalBlock, channels_, position, spread, quantization,
@@ -160,7 +164,6 @@ namespace Grainflow
 					            this_block, output_chans);
 				}
 			}
-			lock_.unlock();
 		}
 	};
 }
