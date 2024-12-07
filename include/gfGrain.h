@@ -40,7 +40,7 @@ namespace Grainflow
 		bool reset_pending_;
 		std::random_device rd_;
 		int g_ = 0;
-		bool enabled_internal_;
+		bool enabled_internal_ = false;
 
 	public:
 		int buffer_samplerate = 48000;
@@ -97,6 +97,7 @@ namespace Grainflow
 		inline void process(gf_io_config& io_config)
 		{
 			if (!enabled && !enabled_internal_) return;
+
 			if (io_config.block_size < Blocksize) return;
 			buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
 			buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
@@ -129,7 +130,12 @@ namespace Grainflow
 
 				process_grain_clock(grain_clock, grain_progress, window_val, window_portion, Blocksize);
 				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize);
-				if (!enabled_internal_) return;
+				if (!enabled_internal_)
+				{
+					std::fill_n(grain_state, Blocksize, 0.0);
+					std::fill_n(grain_progress, Blocksize, 0.0);
+					continue;
+				}
 				increment(fm, grain_progress, sample_id_temp_, temp_double_, glisson_temp_, Blocksize);
 				buffer_reader.sample_envelope(envelope_ref, use_default_envelope, n_envelopes.value, envelope.value,
 				                              grain_envelope, grain_progress, Blocksize);
@@ -267,9 +273,10 @@ namespace Grainflow
 				value_table_[i].direction = direction.value;
 				value_table_[i].density = grain_enabled_;
 			}
+
 			//TODO the performance of this statement can be improved 
 			bool grain_reset = (last_grain_clock_ > grain_clock[0] && grain_clock[0] >= 0.00000001) || (
-				last_grain_clock_ <= 0.00000001 && grain_clock[0] > 0.00000001);
+				last_grain_clock_ < 0.00000001 && grain_clock[0] > 0.00000001);
 			grain_state[0] = !grain_reset && grain_clock[0] >= 0.00000001;
 			int reset_position = 0;
 			for (int i = 1; i < size; i++)
@@ -281,8 +288,9 @@ namespace Grainflow
 				reset_position = reset_position * !(grain_reset && zero_cross) + i * (grain_reset && zero_cross);
 				grain_reset = grain_reset || zero_cross;
 			}
+			const int enabled_mask = enabled_internal_ ? 1 : 0;
 
-			last_grain_clock_ = grain_clock[size - 1];
+			last_grain_clock_ = grain_clock[size - 1] * enabled_mask + (1 - enabled_mask) * 0.001;
 			if (!grain_reset) return value_table_;
 
 			if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::delay_buffer),
@@ -312,7 +320,7 @@ namespace Grainflow
 			sample_density();
 			sample_direction();
 
-			enabled_internal_ = enabled;
+
 			int i = 1;
 			value_table_[i].delay = delay.value * 0.001 * buffer_samplerate;
 			value_table_[i].rate = rate.value;
@@ -323,6 +331,8 @@ namespace Grainflow
 			value_table_[i].envelopePosition = envelope.value;
 			value_table_[i].direction = direction.value;
 			value_table_[i].density = grain_enabled_;
+
+			enabled_internal_ = enabled;
 
 			return value_table_;
 		}

@@ -65,6 +65,7 @@ namespace Grainflow
 		[[nodiscard]] int active_grains() const;
 
 		void set_auto_overlap(bool auto_overlap);
+		bool get_auto_overlap();
 #pragma endregion
 
 #pragma region STREAMS
@@ -287,21 +288,20 @@ namespace Grainflow
 	}
 
 
-
 	template <typename T, size_t Internalblock>
 	void gf_grain_collection<T, Internalblock>::set_active_grains(int n_grains)
 	{
 		if (n_grains <= 0) n_grains = 0;
 		else if (n_grains > grain_count_) n_grains = grain_count_;
 		active_grains_ = n_grains;
-		if (auto_overlap_)
-		{
-			auto windowOffset = 1.0f / (n_grains > 0 ? n_grains : 1);
-			param_set(0, gf_param_name::window, gf_param_type::offset, windowOffset);
-		}
+		const auto windowOffset = 1.0f / (n_grains > 0 ? n_grains : 1);
 		for (int g = 0; g < grain_count_; g++)
 		{
 			grains_[g].enabled = g < active_grains_;
+			if (auto_overlap_ && grains_[g].enabled)
+			{
+				param_set(g + 1, gf_param_name::window, gf_param_type::offset, windowOffset);
+			}
 		}
 	}
 
@@ -316,6 +316,12 @@ namespace Grainflow
 	{
 		auto_overlap_ = auto_overlap;
 		set_active_grains(active_grains_);
+	}
+
+	template <typename T, size_t Internalblock>
+	bool gf_grain_collection<T, Internalblock>::get_auto_overlap()
+	{
+		return auto_overlap_;
 	}
 
 	template <typename T, size_t Internalblock>
