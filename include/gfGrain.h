@@ -41,6 +41,7 @@ namespace Grainflow
 		std::random_device rd_;
 		int g_ = 0;
 		bool enabled_internal_ = false;
+		bool window_changed_;
 
 	public:
 		int buffer_samplerate = 48000;
@@ -133,6 +134,12 @@ namespace Grainflow
 				if (!enabled_internal_)
 				{
 					std::fill_n(grain_state, Blocksize, 0.0);
+					std::fill_n(grain_progress, Blocksize, 0.0);
+					continue;
+				}
+				if (window_changed_)
+				{
+					// todo: Stopping grain state will break the panner (fix this)
 					std::fill_n(grain_progress, Blocksize, 0.0);
 					continue;
 				}
@@ -271,7 +278,7 @@ namespace Grainflow
 				value_table_[i].space = space.value;
 				value_table_[i].envelopePosition = envelope.value;
 				value_table_[i].direction = direction.value;
-				value_table_[i].density = grain_enabled_;
+				value_table_[i].density = grain_enabled_ && !window_changed_;
 			}
 
 			//TODO the performance of this statement can be improved 
@@ -293,6 +300,7 @@ namespace Grainflow
 			last_grain_clock_ = grain_clock[size - 1] * enabled_mask + (1 - enabled_mask) * 0.001;
 			if (!grain_reset) return value_table_;
 
+
 			if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::delay_buffer),
 			                                       param_get_handle(gf_param_name::delay), g_))
 				sample_param(
@@ -304,11 +312,17 @@ namespace Grainflow
 			                                       param_get_handle(gf_param_name::rate),
 			                                       g_))
 				sample_param(gf_param_name::rate);
+
+			const auto last_window = window.value;
 			rate.value = 1 + gf_utils::round(rate.value - 1, 1 - rate_quantize_semi.value);
-			if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::window_buffer),
-			                                       param_get_handle(gf_param_name::window), g_))
-				sample_param(
-					gf_param_name::window);
+			if (!window_changed_)
+			{
+				if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::window_buffer),
+				                                       param_get_handle(gf_param_name::window), g_))
+					sample_param(
+						gf_param_name::window);
+			}
+			window_changed_ = std::abs(window.value - last_window) > 0.00000001;
 			sample_param(&space);
 			sample_param(&glisson);
 			sample_param(&envelope);
@@ -321,7 +335,7 @@ namespace Grainflow
 			sample_direction();
 
 
-			int i = 1;
+			const int i = 1;
 			value_table_[i].delay = delay.value * 0.001 * buffer_samplerate;
 			value_table_[i].rate = rate.value;
 			value_table_[i].glisson = glisson.value;
@@ -330,7 +344,7 @@ namespace Grainflow
 			value_table_[i].space = space.value;
 			value_table_[i].envelopePosition = envelope.value;
 			value_table_[i].direction = direction.value;
-			value_table_[i].density = grain_enabled_;
+			value_table_[i].density = !window_changed_ && grain_enabled_;
 
 			enabled_internal_ = enabled;
 
