@@ -154,7 +154,10 @@ namespace Grainflow
 					const double absSum = std::transform_reduce(states, &states[InternalBlock], 0,
 					                                            std::plus<double>{},
 					                                            static_cast<double (*)(double)>(std::fabs));
-					if (absSum <= 0.0) return;
+					if (absSum <= 0.0){
+						last_position_[ch] = 0.0;
+						continue;
+					}
 					auto idx = detect_one_transition(states, InternalBlock, last_samples_, ch);
 
 					determine_pan_position(idx, InternalBlock, channels_, position, spread, quantization,

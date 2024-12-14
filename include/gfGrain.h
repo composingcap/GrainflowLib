@@ -15,6 +15,7 @@
 /// </summary>
 namespace Grainflow
 {
+	constexpr double Grainclock_Thresh = 1e-7;
 	/// <summary>
 	/// An interface that represents a grainflow grain.
 	/// To implement a grain, a valid interface needs to implement:
@@ -282,16 +283,16 @@ namespace Grainflow
 			}
 
 			//TODO the performance of this statement can be improved 
-			bool grain_reset = (last_grain_clock_ > grain_clock[0] && grain_clock[0] >= 0.00000001) || (
-				last_grain_clock_ < 0.00000001 && grain_clock[0] > 0.00000001);
-			grain_state[0] = !grain_reset && grain_clock[0] >= 0.00000001;
+			bool grain_reset = (last_grain_clock_ > grain_clock[0] && grain_clock[0] >= Grainclock_Thresh) || (
+				last_grain_clock_ < Grainclock_Thresh && grain_clock[0] > Grainclock_Thresh);
+			grain_state[0] = !grain_reset && grain_clock[0] >= Grainclock_Thresh;
 			int reset_position = 0;
 			for (int i = 1; i < size; i++)
 			{
-				const bool zero_cross = (grain_clock[i - 1] > grain_clock[i] && grain_clock[i] >= 0.00000001) || (
+				const bool zero_cross = (grain_clock[i - 1] > grain_clock[i] && grain_clock[i] >= Grainclock_Thresh) || (
 					grain_clock[i - 1] <=
-					0.00000001 && grain_clock[i] > 0.00000001);
-				grain_state[i] = !zero_cross && grain_clock[i] >= 0.00000001;
+					Grainclock_Thresh && grain_clock[i] > Grainclock_Thresh);
+				grain_state[i] = !zero_cross && grain_clock[i] >= Grainclock_Thresh;
 				reset_position = reset_position * !(grain_reset && zero_cross) + i * (grain_reset && zero_cross);
 				grain_reset = grain_reset || zero_cross;
 			}
