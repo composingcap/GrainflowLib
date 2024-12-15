@@ -21,12 +21,11 @@ namespace Grainflow
 		bool (*sample_param_buffer)(T* buffer, gf_param* param, int grain_id) = nullptr;
 		void (*sample_buffer)(T* buffer, int channel, double* __restrict samples, const double* positions,
 		                      const int size) = nullptr;
-		void (*update_buffer_info)(T* buffer, const gf_io_config& io_config, gf_buffer_info* buffer_info) = nullptr;
+		bool (*update_buffer_info)(T* buffer, const gf_io_config& io_config, gf_buffer_info* buffer_info) = nullptr;
 		void (*sample_envelope)(T* buffer, const bool use_default, const int n_envelopes, const float env2d_pos,
 		                        double* __restrict samples, const double* __restrict grain_clock,
 		                        const int size) = nullptr;
 		void (*write_buffer)(T* buffer, const int channel, const double* samples, double* __restrict scratch,
-			const int start_position, const float overdub, const int size) = nullptr;
-
+		                     const int start_position, const float overdub, const int size) = nullptr;
 	};
 }

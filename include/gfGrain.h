@@ -16,6 +16,7 @@
 namespace Grainflow
 {
 	constexpr double Grainclock_Thresh = 1e-7;
+
 	/// <summary>
 	/// An interface that represents a grainflow grain.
 	/// To implement a grain, a valid interface needs to implement:
@@ -101,7 +102,8 @@ namespace Grainflow
 			if (!enabled && !enabled_internal_) return;
 
 			if (io_config.block_size < Blocksize) return;
-			buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
+			auto buffer_valid = buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
+			if (!buffer_valid) return;
 			buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
 
 
@@ -289,7 +291,8 @@ namespace Grainflow
 			int reset_position = 0;
 			for (int i = 1; i < size; i++)
 			{
-				const bool zero_cross = (grain_clock[i - 1] > grain_clock[i] && grain_clock[i] >= Grainclock_Thresh) || (
+				const bool zero_cross = (grain_clock[i - 1] > grain_clock[i] && grain_clock[i] >= Grainclock_Thresh) ||
+				(
 					grain_clock[i - 1] <=
 					Grainclock_Thresh && grain_clock[i] > Grainclock_Thresh);
 				grain_state[i] = !zero_cross && grain_clock[i] >= Grainclock_Thresh;
