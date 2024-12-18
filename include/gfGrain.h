@@ -103,7 +103,6 @@ namespace Grainflow
 
 			if (io_config.block_size < Blocksize) return;
 			auto buffer_valid = buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
-			if (!buffer_valid) return;
 			buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
 
 
@@ -150,7 +149,8 @@ namespace Grainflow
 				buffer_reader.sample_envelope(envelope_ref, use_default_envelope, n_envelopes.value, envelope.value,
 				                              grain_envelope, grain_progress, Blocksize);
 				if (sample_id_temp_[0] != sample_id_temp_[0]) continue; //Nan check
-				buffer_reader.sample_buffer(buffer_ref, channel.value, grain_output, sample_id_temp_, Blocksize);
+				if (buffer_valid) buffer_reader.sample_buffer(buffer_ref, channel.value, grain_output, sample_id_temp_,
+				                                              Blocksize);
 				expand_value_table(valueFrames, grain_state, amp_temp_, density_temp_, Blocksize);
 				output_block(sample_id_temp_, amp_temp_, density_temp_, buffer_info.one_over_buffer_frames, stream,
 				             input_amp, grain_playhead, grain_amp, grain_envelope, grain_output, grain_channels,
