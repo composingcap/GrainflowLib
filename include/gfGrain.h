@@ -473,7 +473,7 @@ namespace Grainflow
 			{
 				sample_delta_temp[i] = gf_utils::pitch_to_rate(fm[i]);
 			}
-			if (glisson.mode == gf_buffer_mode::normal)
+			if (glisson.mode == gf_buffer_mode::normal && glisson_rows.value >= 1)
 			{
 				for (int i = 0; i < size; i++)
 				{
