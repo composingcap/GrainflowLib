@@ -5,12 +5,12 @@
 
 namespace Grainflow
 {
-	template <typename T, size_t Internalblock>
+	template <typename T, size_t Internalblock, typename SigType = double>
 	class gf_grain_collection
 	{
 	private:
-		std::unique_ptr<gf_grain<T, Internalblock>[]> grains_;
-		gf_i_buffer_reader<T> buffer_reader_;
+		std::unique_ptr<gf_grain<T, Internalblock, SigType>[]> grains_;
+		gf_i_buffer_reader<T, SigType> buffer_reader_;
 		int grain_count_ = 0;
 		int active_grains_ = 0;
 		int nstreams_ = 0;
@@ -19,7 +19,7 @@ namespace Grainflow
 	public:
 		int samplerate = 48000;
 
-		explicit gf_grain_collection(gf_i_buffer_reader<T> buffer_reader, int grain_count = 0);
+		explicit gf_grain_collection(gf_i_buffer_reader<T, SigType> buffer_reader, int grain_count = 0);
 
 		~gf_grain_collection();
 
@@ -27,12 +27,12 @@ namespace Grainflow
 
 		[[nodiscard]] int grains() const;
 
-		gf_grain<T, Internalblock>* get_grain(int index);
+		gf_grain<T, Internalblock, SigType>* get_grain(int index);
 
 
 #pragma region DSP
 		// Processes all grain given an io config with the correct inputs and outputs  
-		void process(gf_io_config& io_config);
+		void process(gf_io_config<SigType>& io_config);
 
 #pragma endregion
 
@@ -103,8 +103,8 @@ namespace Grainflow
 		void channel_mode_set(int mode);
 	};
 
-	template <typename T, size_t Internalblock>
-	gf_grain_collection<T, Internalblock>::gf_grain_collection(gf_i_buffer_reader<T> buffer_reader,
+	template <typename T, size_t Internalblock, typename SigType>
+	gf_grain_collection<T, Internalblock, SigType>::gf_grain_collection(gf_i_buffer_reader<T, SigType> buffer_reader,
 	                                                           const int grain_count)
 	{
 		this->buffer_reader_ = buffer_reader;
@@ -114,17 +114,17 @@ namespace Grainflow
 		}
 	}
 
-	template <typename T, size_t Internalblock>
-	gf_grain_collection<T, Internalblock>::~gf_grain_collection()
+	template <typename T, size_t Internalblock, typename SigType>
+	gf_grain_collection<T, Internalblock, SigType>::~gf_grain_collection()
 	{
 		grains_.release();
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::resize(const int grain_count)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::resize(const int grain_count)
 	{
 		grain_count_ = grain_count;
-		grains_.reset(new gf_grain<T, Internalblock>[grain_count]);
+		grains_.reset(new gf_grain<T, Internalblock, SigType>[grain_count]);
 		for (int i = 0; i < grain_count; i++)
 		{
 			grains_[i].buffer_reader = buffer_reader_;
@@ -132,21 +132,21 @@ namespace Grainflow
 		set_active_grains(grain_count);
 	}
 
-	template <typename T, size_t Internalblock>
-	int gf_grain_collection<T, Internalblock>::grains() const
+	template <typename T, size_t Internalblock, typename SigType>
+	int gf_grain_collection<T, Internalblock, SigType>::grains() const
 	{
 		return grain_count_;
 	}
 
-	template <typename T, size_t Internalblock>
-	gf_grain<T, Internalblock>* gf_grain_collection<T, Internalblock>::get_grain(int index)
+	template <typename T, size_t Internalblock, typename SigType>
+	gf_grain<T, Internalblock, SigType>* gf_grain_collection<T, Internalblock, SigType>::get_grain(int index)
 	{
 		if (index >= grain_count_) return nullptr;
 		return &grains_[index];
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::process(gf_io_config& io_config)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::process(gf_io_config<SigType>& io_config)
 	{
 		for (int g = 0; g < grain_count_; g++)
 		{
@@ -154,8 +154,8 @@ namespace Grainflow
 		}
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::transform_params(gf_param_name& param_name,
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::transform_params(gf_param_name& param_name,
 	                                                             const gf_param_type& param_type,
 	                                                             float& value)
 	{
@@ -180,8 +180,8 @@ namespace Grainflow
 		}
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::param_set(int target, gf_param_name param_name,
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::param_set(int target, gf_param_name param_name,
 	                                                      gf_param_type param_type,
 	                                                      float value)
 	{
@@ -198,8 +198,8 @@ namespace Grainflow
 		grains_.get()[target - 1].param_set(value, param_name, param_type);
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::param_set(const int target,
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::param_set(const int target,
 	                                                                const std::string& reflection_string,
 	                                                                const float value)
 	{
@@ -217,8 +217,8 @@ namespace Grainflow
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::channel_param_set(const int channel, const gf_param_name param_name,
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::channel_param_set(const int channel, const gf_param_name param_name,
 	                                                              const gf_param_type param_type,
 	                                                              const float value)
 	{
@@ -229,8 +229,8 @@ namespace Grainflow
 		}
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::channel_param_set(
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::channel_param_set(
 		const int channel, const std::string& reflection_string,
 		const float value)
 	{
@@ -243,8 +243,8 @@ namespace Grainflow
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::grain_param_func(
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::grain_param_func(
 		const gf_param_name param_name, const gf_param_type param_type,
 		float (*func)(float, float, float), const float a, const float b)
 	{
@@ -256,8 +256,8 @@ namespace Grainflow
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::grain_param_func(const std::string& reflection_string,
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::grain_param_func(const std::string& reflection_string,
 	                                                                       float (*func)(float, float, float),
 	                                                                       const float a,
 	                                                                       const float b)
@@ -270,16 +270,16 @@ namespace Grainflow
 		return grain_param_func(param_name, param_type, func, a, b);
 	}
 
-	template <typename T, size_t Internalblock>
-	float gf_grain_collection<T, Internalblock>::param_get(const int target, gf_param_name param_name)
+	template <typename T, size_t Internalblock, typename SigType>
+	float gf_grain_collection<T, Internalblock, SigType>::param_get(const int target, gf_param_name param_name)
 	{
 		if (target >= grain_count_) return 0;
 		if (target <= 1) return grains_.get()[0].param_get(param_name);
 		return grains_.get()[target - 1].param_get(param_name);
 	}
 
-	template <typename T, size_t Internalblock>
-	float gf_grain_collection<T, Internalblock>::param_get(const int target, gf_param_name param_name,
+	template <typename T, size_t Internalblock, typename SigType>
+	float gf_grain_collection<T, Internalblock, SigType>::param_get(const int target, gf_param_name param_name,
 	                                                       gf_param_type param_type)
 	{
 		if (target > grain_count_) return 0;
@@ -288,8 +288,8 @@ namespace Grainflow
 	}
 
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::set_active_grains(int n_grains)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::set_active_grains(int n_grains)
 	{
 		if (n_grains <= 0) n_grains = 0;
 		else if (n_grains > grain_count_) n_grains = grain_count_;
@@ -305,33 +305,33 @@ namespace Grainflow
 		}
 	}
 
-	template <typename T, size_t Internalblock>
-	int gf_grain_collection<T, Internalblock>::active_grains() const
+	template <typename T, size_t Internalblock, typename SigType>
+	int gf_grain_collection<T, Internalblock, SigType>::active_grains() const
 	{
 		return active_grains_;
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::set_auto_overlap(const bool auto_overlap)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::set_auto_overlap(const bool auto_overlap)
 	{
 		auto_overlap_ = auto_overlap;
 		set_active_grains(active_grains_);
 	}
 
-	template <typename T, size_t Internalblock>
-	bool gf_grain_collection<T, Internalblock>::get_auto_overlap()
+	template <typename T, size_t Internalblock, typename SigType>
+	bool gf_grain_collection<T, Internalblock, SigType>::get_auto_overlap()
 	{
 		return auto_overlap_;
 	}
 
-	template <typename T, size_t Internalblock>
-	int gf_grain_collection<T, Internalblock>::streams() const
+	template <typename T, size_t Internalblock, typename SigType>
+	int gf_grain_collection<T, Internalblock, SigType>::streams() const
 	{
 		return nstreams_;
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_set(int stream, const gf_param_name param_name,
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::stream_param_set(int stream, const gf_param_name param_name,
 	                                                                       const gf_param_type param_type,
 	                                                                       const float value)
 	{
@@ -344,8 +344,8 @@ namespace Grainflow
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_set(
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::stream_param_set(
 		const std::string& reflection_string, const int stream,
 		const float value)
 	{
@@ -357,8 +357,8 @@ namespace Grainflow
 		return stream_param_set(stream, param_name, param_type, value);
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_func(
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::stream_param_func(
 		const gf_param_name param_name, const gf_param_type param_type,
 		float (*func)(float, float, float), const float a, const float b)
 	{
@@ -372,8 +372,8 @@ namespace Grainflow
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
 
-	template <typename T, size_t Internalblock>
-	GF_RETURN_CODE gf_grain_collection<T, Internalblock>::stream_param_func(const std::string& reflection_string,
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::stream_param_func(const std::string& reflection_string,
 	                                                                        float (*func)(float, float, float),
 	                                                                        const float a,
 	                                                                        const float b)
@@ -386,8 +386,8 @@ namespace Grainflow
 		return stream_param_func(param_name, param_type, func, a, b);
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::stream_set(gf_stream_set_type mode, int nstreams)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::stream_set(gf_stream_set_type mode, int nstreams)
 	{
 		nstreams_ = nstreams;
 		if (mode == gf_stream_set_type::manual_streams) return;
@@ -397,8 +397,8 @@ namespace Grainflow
 		}
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::stream_set(const int grain, int stream_id)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::stream_set(const int grain, int stream_id)
 	{
 		if (grain <= 0) return;
 		if (grain > grain_count_) return;
@@ -406,26 +406,26 @@ namespace Grainflow
 		grains_[grain - 1].stream_set(stream_id, gf_stream_set_type::manual_streams, nstreams_);
 	}
 
-	template <typename T, size_t Internalblock>
-	int gf_grain_collection<T, Internalblock>::stream_get(int grain_index)
+	template <typename T, size_t Internalblock, typename SigType>
+	int gf_grain_collection<T, Internalblock, SigType>::stream_get(int grain_index)
 	{
 		return static_cast<int>(grains_[grain_index].stream);
 	}
 
-	template <typename T, size_t Internalblock>
-	T* gf_grain_collection<T, Internalblock>::get_buffer(gf_buffers type, int index)
+	template <typename T, size_t Internalblock, typename SigType>
+	T* gf_grain_collection<T, Internalblock, SigType>::get_buffer(gf_buffers type, int index)
 	{
 		return grains_[index].get_buffer(type);
 	}
 
-	template <typename T, size_t Internalblock>
-	int gf_grain_collection<T, Internalblock>::chanel_get(int index)
+	template <typename T, size_t Internalblock, typename SigType>
+	int gf_grain_collection<T, Internalblock, SigType>::chanel_get(int index)
 	{
 		return grains_[index].channel.base;
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::channels_set_interleaved(const int channels)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::channels_set_interleaved(const int channels)
 	{
 		for (int g = 0; g < grain_count_; g++)
 		{
@@ -433,14 +433,14 @@ namespace Grainflow
 		}
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::channel_set(int index, const int channel)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::channel_set(int index, const int channel)
 	{
 		grains_[index].channel.base = static_cast<float>(channel);
 	}
 
-	template <typename T, size_t Internalblock>
-	void gf_grain_collection<T, Internalblock>::channel_mode_set(const int mode)
+	template <typename T, size_t Internalblock, typename SigType>
+	void gf_grain_collection<T, Internalblock, SigType>::channel_mode_set(const int mode)
 	{
 		for (int g = 0; g < grain_count_; g++)
 		{
@@ -448,3 +448,4 @@ namespace Grainflow
 		}
 	}
 }
+

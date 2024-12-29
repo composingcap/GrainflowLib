@@ -15,7 +15,6 @@
 /// </summary>
 namespace Grainflow
 {
-	constexpr double Grainclock_Thresh = 1e-7;
 
 	/// <summary>
 	/// An interface that represents a grainflow grain.
@@ -24,21 +23,22 @@ namespace Grainflow
 	/// -SampleEnvelope
 	/// -SampleParamBuffer
 	/// </summary>
-	template <typename T, size_t Blocksize>
+	template <typename T, size_t Blocksize, typename SigType = double>
 	class gf_grain
 	{
 	private:
+		static 	constexpr SigType Grainclock_Thresh = 1e-7;
 		bool reset_ = false;
-		double last_grain_clock_ = -999;
+		SigType last_grain_clock_ = -999;
 		float source_position_norm_ = 0;
 		bool grain_enabled_ = true;
 		bool buffer_defined_ = false;
 		gf_value_table value_table_[2];
-		double sample_id_temp_[Blocksize];
+		SigType sample_id_temp_[Blocksize];
 		float density_temp_[Blocksize];
 		float amp_temp_[Blocksize];
-		double temp_double_[Blocksize];
-		double glisson_temp_[Blocksize];
+		SigType temp_double_[Blocksize];
+		SigType glisson_temp_[Blocksize];
 		bool reset_pending_;
 		std::random_device rd_;
 		int g_ = 0;
@@ -49,7 +49,7 @@ namespace Grainflow
 		int buffer_samplerate = 48000;
 
 		bool use_default_envelope = true;
-		double source_sample = 0;
+		SigType source_sample = 0;
 		size_t stream = 0;
 		bool enabled;
 
@@ -80,7 +80,7 @@ namespace Grainflow
 		T* window_buf_ref = nullptr;
 		T* glisson_buffer = nullptr;
 
-		gf_i_buffer_reader<T> buffer_reader;
+		gf_i_buffer_reader<T, SigType> buffer_reader;
 		gf_buffer_info buffer_info;
 
 		gf_grain(): value_table_{}, sample_id_temp_{}, density_temp_{}, amp_temp_{}, temp_double_{}, glisson_temp_{},
@@ -97,7 +97,7 @@ namespace Grainflow
 			density.base = 1;
 		}
 
-		inline void process(gf_io_config& io_config)
+		inline void process(gf_io_config<SigType>& io_config)
 		{
 			if (!enabled && !enabled_internal_) return;
 
@@ -116,20 +116,20 @@ namespace Grainflow
 			{
 				const int block = i * Blocksize;
 				auto amp = amplitude.value;
-				const double* grain_clock = &io_config.grain_clock[g_ % io_config.grain_clock_chans][block];
-				double* input_amp = &io_config.am[g_ % io_config.am_chans][block];
-				double* fm = &io_config.fm[g_ % io_config.fm_chans][block];
-				const double* traversal_phasor = &io_config.traversal_phasor[g_ % io_config.traversal_phasor_chans][
+				const SigType* grain_clock = &io_config.grain_clock[g_ % io_config.grain_clock_chans][block];
+				SigType* input_amp = &io_config.am[g_ % io_config.am_chans][block];
+				SigType* fm = &io_config.fm[g_ % io_config.fm_chans][block];
+				const SigType* traversal_phasor = &io_config.traversal_phasor[g_ % io_config.traversal_phasor_chans][
 					block];
 
-				double* grain_progress = &io_config.grain_progress[g_][block];
-				double* grain_state = &io_config.grain_state[g_][block];
-				double* grain_playhead = &io_config.grain_playhead[g_][block];
-				double* grain_amp = &io_config.grain_amp[g_][block];
-				double* grain_envelope = &io_config.grain_envelope[g_][block];
-				double* grain_output = &io_config.grain_output[g_][block];
-				double* grain_channels = &io_config.grain_buffer_channel[g_][block];
-				double* grain_streams = &io_config.grain_stream_channel[g_][block];
+				SigType* grain_progress = &io_config.grain_progress[g_][block];
+				SigType* grain_state = &io_config.grain_state[g_][block];
+				SigType* grain_playhead = &io_config.grain_playhead[g_][block];
+				SigType* grain_amp = &io_config.grain_amp[g_][block];
+				SigType* grain_envelope = &io_config.grain_envelope[g_][block];
+				SigType* grain_output = &io_config.grain_output[g_][block];
+				SigType* grain_channels = &io_config.grain_buffer_channel[g_][block];
+				SigType* grain_streams = &io_config.grain_stream_channel[g_][block];
 
 				process_grain_clock(grain_clock, grain_progress, window_val, window_portion, Blocksize);
 				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize);
@@ -270,8 +270,8 @@ namespace Grainflow
 				(abs((rd() % 10000) * 0.0001f) * (param->random) + param->offset) * range + param->base, range);
 		}
 
-		inline gf_value_table* grain_reset(const double* __restrict grain_clock, const double* traversal,
-		                                   double* __restrict grain_state, const int size)
+		inline gf_value_table* grain_reset(const SigType* __restrict grain_clock, const SigType* traversal,
+			SigType* __restrict grain_state, const int size)
 		{
 			for (int i = 0; i < 2; i++)
 			{
@@ -409,7 +409,7 @@ namespace Grainflow
 		}
 
 		static inline void expand_value_table(const gf_value_table* __restrict value_frames,
-		                                      const double* __restrict grain_state, float* __restrict amplitudes,
+		                                      const SigType* __restrict grain_state, float* __restrict amplitudes,
 		                                      float* __restrict densities, const int size)
 		{
 			for (int j = 0; j < size; j++)
@@ -419,29 +419,29 @@ namespace Grainflow
 			}
 		}
 
-		static inline void process_grain_clock(const double* __restrict grain_clock, double* __restrict grain_progress,
+		static inline void process_grain_clock(const SigType* __restrict grain_clock, SigType* __restrict grain_progress,
 		                                       const float window_val, const float window_portion, const int size)
 		{
 			for (int j = 0; j < size; j++)
 			{
-				double sample = grain_clock[j] + window_val;
+				auto sample = grain_clock[j] + window_val;
 				sample -= floor(sample);
 				sample *= window_portion;
 				grain_progress[j] = sample;
 			}
 			for (int j = 0; j < size; j++)
 			{
-				grain_progress[j] = std::min(grain_progress[j], 1.0);
+				grain_progress[j] = std::min<SigType>(grain_progress[j], 1.0);
 			}
 		}
 
-		inline void output_block(const double* __restrict sample_ids, const float* __restrict amplitudes,
+		inline void output_block(const SigType* __restrict sample_ids, const float* __restrict amplitudes,
 		                         const float* __restrict densities, const float one_over_buffer_frames,
-		                         const int stream, const double* input_amp,
-		                         double* __restrict grain_playhead, double* __restrict grain_amp,
-		                         double* __restrict grain_envelope,
-		                         double* __restrict grain_output, double* __restrict grain_stream_channel,
-		                         double* __restrict grain_buffer_channel, const int size) const
+		                         const int stream, const SigType* input_amp,
+			SigType* __restrict grain_playhead, SigType* __restrict grain_amp,
+			SigType* __restrict grain_envelope,
+			SigType* __restrict grain_output, SigType* __restrict grain_stream_channel,
+			SigType* __restrict grain_buffer_channel, const int size) const
 		{
 			for (int j = 0; j < size; j++)
 			{
@@ -456,19 +456,19 @@ namespace Grainflow
 			}
 		}
 
-		inline void increment(const double* __restrict fm, const double* __restrict grain_clock,
-		                      double* __restrict sample_positions, double* __restrict sample_delta_temp,
-		                      double* __restrict glisson_temp, const int size)
+		inline void increment(const SigType* __restrict fm, const SigType* __restrict grain_clock,
+		                      SigType* __restrict sample_positions, SigType* __restrict sample_delta_temp,
+		                      SigType* __restrict glisson_temp, const int size)
 		{
 			const int fold = loop_mode.base > 1.1f ? 1 : 0;
-			const double start_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * start_point.value,
-			                                  static_cast<double>(buffer_info.buffer_frames) - 1);
-			const double end_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * stop_point.value,
-			                                static_cast<double>(buffer_info.buffer_frames) - 1);
+			const SigType start_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * start_point.value,
+			                                  static_cast<SigType>(buffer_info.buffer_frames) - 1);
+			const SigType end_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * stop_point.value,
+			                                static_cast<SigType>(buffer_info.buffer_frames) - 1);
 
-			const double start = std::min(start_tmp, end_tmp);
+			const SigType start = std::min(start_tmp, end_tmp);
 			//Need to check the order in case a user feeds us these out of order
-			const double end = std::max(start_tmp, end_tmp);
+			const SigType end = std::max(start_tmp, end_tmp);
 
 
 			for (int i = 0; i < size; i++)
@@ -494,7 +494,7 @@ namespace Grainflow
 				}
 			}
 			sample_positions[0] = source_sample;
-			double last_position = source_sample;
+			SigType last_position = source_sample;
 			for (int i = 1; i < size; i++)
 			{
 				sample_positions[i] = last_position + sample_delta_temp[i - 1];

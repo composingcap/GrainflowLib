@@ -14,18 +14,18 @@ namespace Grainflow
 		double one_over_samplerate = 1;
 	};
 
-	template <typename T>
+	template <typename T, typename SigType>
 	struct gf_i_buffer_reader
 	{
 	public:
 		bool (*sample_param_buffer)(T* buffer, gf_param* param, int grain_id) = nullptr;
-		void (*sample_buffer)(T* buffer, int channel, double* __restrict samples, const double* positions,
+		void (*sample_buffer)(T* buffer, int channel, SigType* __restrict samples, const SigType* positions,
 		                      const int size) = nullptr;
-		bool (*update_buffer_info)(T* buffer, const gf_io_config& io_config, gf_buffer_info* buffer_info) = nullptr;
+		bool (*update_buffer_info)(T* buffer, const gf_io_config<SigType>& io_config, gf_buffer_info* buffer_info) = nullptr;
 		void (*sample_envelope)(T* buffer, const bool use_default, const int n_envelopes, const float env2d_pos,
-		                        double* __restrict samples, const double* __restrict grain_clock,
+			SigType* __restrict samples, const SigType* __restrict grain_clock,
 		                        const int size) = nullptr;
-		void (*write_buffer)(T* buffer, const int channel, const double* samples, double* __restrict scratch,
+		void (*write_buffer)(T* buffer, const int channel, const SigType* samples, SigType* __restrict scratch,
 		                     const int start_position, const float overdub, const int size) = nullptr;
 	};
 }
