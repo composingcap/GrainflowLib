@@ -128,6 +128,7 @@ namespace Grainflow
 		for (int i = 0; i < grain_count; i++)
 		{
 			grains_[i].buffer_reader = buffer_reader_;
+			grains_[i].set_index(i);
 		}
 		set_active_grains(grain_count);
 	}
