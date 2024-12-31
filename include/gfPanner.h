@@ -3,7 +3,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
-
+#include<numeric>
 #include "gfEnvelopes.h"
 #include "gfUtils.h"
 
@@ -16,19 +16,19 @@ namespace Grainflow
 		stereo = 2
 	};
 
-	template <size_t InternalBlock, gf_pan_mode pan_mode>
+	template <size_t InternalBlock, gf_pan_mode pan_mode, typename sigtype = double>
 	class gf_panner
 	{
 	private:
 		int channels_ = 0;
 		std::atomic<int> output_channels_ = 0;
 		float positions_[InternalBlock] = {0};
-		std::vector<double> last_samples_ = {0};
+		std::vector<sigtype> last_samples_ = {0};
 		std::vector<float> last_position_ = {0};
 		std::mutex lock_;
 
-		static int detect_one_transition(const double* __restrict input_stream, const int block_size,
-		                                 std::vector<double>& last_sample, const int channel)
+		static int detect_one_transition(const sigtype* __restrict input_stream, const int block_size,
+		                                 std::vector<sigtype>& last_sample, const int channel)
 		{
 			if (last_sample[channel] - input_stream[0] < -0.5f)
 			{
@@ -63,7 +63,7 @@ namespace Grainflow
 			case gf_pan_mode::stereo:
 				position = std::clamp(gf_utils::deviate(pan_center, pan_spread * 0.5f), 0.0f, 1.0f);
 			}
-			const double n_outputs = output_channels;
+			const sigtype n_outputs = output_channels;
 			position = static_cast<float>(std::max(
 				gf_utils::mod(position + n_outputs * 5, n_outputs),
 				0.0));
@@ -78,8 +78,8 @@ namespace Grainflow
 			last_positions[channel] = out_pan_positions[block_size - 1];
 		}
 
-		static void perform_pan(const double* __restrict input_stream, const float* __restrict positions,
-		                        const size_t block_size, double** __restrict output_stream, const size_t block_offset,
+		static void perform_pan(const sigtype* __restrict input_stream, const float* __restrict positions,
+		                        const size_t block_size, sigtype** __restrict output_stream, const size_t block_offset,
 		                        const int output_channels)
 		{
 			for (int j = 0; j < block_size; j++)
@@ -134,7 +134,7 @@ namespace Grainflow
 		}
 
 
-		void process(double** __restrict grains, double** __restrict grain_states, double** __restrict output_stream,
+		void process(sigtype** __restrict grains, sigtype** __restrict grain_states, sigtype** __restrict output_stream,
 		             const int block_size)
 		{
 			const auto position = pan_position.load();
@@ -151,9 +151,9 @@ namespace Grainflow
 					auto input = &grains[ch][this_block];
 					auto states = &grain_states[ch][this_block];
 
-					const double absSum = std::transform_reduce(states, &states[InternalBlock], 0,
-					                                            std::plus<double>{},
-					                                            static_cast<double (*)(double)>(std::fabs));
+					const sigtype absSum = std::transform_reduce(states, &states[InternalBlock], 0,
+					                                            std::plus<sigtype>{},
+					                                            static_cast<sigtype(*)(sigtype)>(std::fabs));
 					if (absSum <= 0.0){
 						last_position_[ch] = 0.0;
 						continue;
@@ -162,7 +162,6 @@ namespace Grainflow
 
 					determine_pan_position(idx, InternalBlock, channels_, position, spread, quantization,
 					                       last_position_, ch, output_chans, positions_);
-
 					perform_pan(input, positions_, InternalBlock, output_stream,
 					            this_block, output_chans);
 				}
