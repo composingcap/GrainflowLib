@@ -15,7 +15,6 @@
 /// </summary>
 namespace Grainflow
 {
-
 	/// <summary>
 	/// An interface that represents a grainflow grain.
 	/// To implement a grain, a valid interface needs to implement:
@@ -27,7 +26,7 @@ namespace Grainflow
 	class gf_grain
 	{
 	private:
-		static 	constexpr SigType Grainclock_Thresh = 1e-7;
+		static constexpr SigType Grainclock_Thresh = 1e-7;
 		bool reset_ = false;
 		SigType last_grain_clock_ = -999;
 		float source_position_norm_ = 0;
@@ -103,7 +102,7 @@ namespace Grainflow
 
 			if (io_config.block_size < Blocksize) return;
 			auto buffer_valid = buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
-			buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
+			use_default_envelope = !buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
 
 
 			const float window_portion = 1 / std::clamp(1 - space.value, 0.0001f, 1.0f);
@@ -271,7 +270,7 @@ namespace Grainflow
 		}
 
 		inline gf_value_table* grain_reset(const SigType* __restrict grain_clock, const SigType* traversal,
-			SigType* __restrict grain_state, const int size)
+		                                   SigType* __restrict grain_state, const int size)
 		{
 			for (int i = 0; i < 2; i++)
 			{
@@ -419,7 +418,8 @@ namespace Grainflow
 			}
 		}
 
-		static inline void process_grain_clock(const SigType* __restrict grain_clock, SigType* __restrict grain_progress,
+		static inline void process_grain_clock(const SigType* __restrict grain_clock,
+		                                       SigType* __restrict grain_progress,
 		                                       const float window_val, const float window_portion, const int size)
 		{
 			for (int j = 0; j < size; j++)
@@ -438,10 +438,10 @@ namespace Grainflow
 		inline void output_block(const SigType* __restrict sample_ids, const float* __restrict amplitudes,
 		                         const float* __restrict densities, const float one_over_buffer_frames,
 		                         const int stream, const SigType* input_amp,
-			SigType* __restrict grain_playhead, SigType* __restrict grain_amp,
-			SigType* __restrict grain_envelope,
-			SigType* __restrict grain_output, SigType* __restrict grain_stream_channel,
-			SigType* __restrict grain_buffer_channel, const int size) const
+		                         SigType* __restrict grain_playhead, SigType* __restrict grain_amp,
+		                         SigType* __restrict grain_envelope,
+		                         SigType* __restrict grain_output, SigType* __restrict grain_stream_channel,
+		                         SigType* __restrict grain_buffer_channel, const int size) const
 		{
 			for (int j = 0; j < size; j++)
 			{
@@ -462,9 +462,9 @@ namespace Grainflow
 		{
 			const int fold = loop_mode.base > 1.1f ? 1 : 0;
 			const SigType start_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * start_point.value,
-			                                  static_cast<SigType>(buffer_info.buffer_frames) - 1);
+			                                   static_cast<SigType>(buffer_info.buffer_frames) - 1);
 			const SigType end_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * stop_point.value,
-			                                static_cast<SigType>(buffer_info.buffer_frames) - 1);
+			                                 static_cast<SigType>(buffer_info.buffer_frames) - 1);
 
 			const SigType start = std::min(start_tmp, end_tmp);
 			//Need to check the order in case a user feeds us these out of order
