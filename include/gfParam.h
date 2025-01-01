@@ -102,6 +102,36 @@ namespace Grainflow
 		gf_buffer_mode mode = gf_buffer_mode::normal;
 	};
 
+	static bool buffer_reflection(std::string reflectionString, gf_buffers& type)
+	{
+		if (reflectionString == "buf" || reflectionString == "buffer") {
+			type = gf_buffers::buffer;
+		}
+		else if (reflectionString == "env" || reflectionString == "envelope") {
+			type = gf_buffers::envelope;
+		}
+		else if (reflectionString == "delay" || reflectionString == "delays")
+		{
+			type = gf_buffers::delay_buffer;
+		}
+		else if (reflectionString == "window" || reflectionString == "windows")
+		{
+			type = gf_buffers::window_buffer;
+		}
+		else if (reflectionString == "glisson")
+		{
+			type = gf_buffers::glisson_buffer;
+		}
+		else if (reflectionString == "rate" || reflectionString == "rates")
+		{
+			type = gf_buffers::rate_buffer;
+		}
+		else {
+			return false;
+		}
+		return true;
+	}
+
 
 	static bool param_reflection(std::string param, gf_param_name& out_param_name, gf_param_type& out_param_type)
 	{

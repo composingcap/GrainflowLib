@@ -1,23 +1,24 @@
 #pragma once
 namespace Grainflow
 {
+	template<typename T = double>
 	struct gf_io_config
 	{
 		//Outputs
-		double** grain_output = nullptr;
-		double** grain_state = nullptr;
-		double** grain_progress = nullptr;
-		double** grain_playhead = nullptr;
-		double** grain_amp = nullptr;
-		double** grain_envelope = nullptr;
-		double** grain_buffer_channel = nullptr;
-		double** grain_stream_channel = nullptr;
+		T** grain_output = nullptr;
+		T** grain_state = nullptr;
+		T** grain_progress = nullptr;
+		T** grain_playhead = nullptr;
+		T** grain_amp = nullptr;
+		T** grain_envelope = nullptr;
+		T** grain_buffer_channel = nullptr;
+		T** grain_stream_channel = nullptr;
 
 		//Inputs
-		double** grain_clock = nullptr;
-		double** traversal_phasor = nullptr;
-		double** fm = nullptr;
-		double** am = nullptr;
+		T** grain_clock = nullptr;
+		T** traversal_phasor = nullptr;
+		T** fm = nullptr;
+		T** am = nullptr;
 
 		int grain_clock_chans;
 		int traversal_phasor_chans;

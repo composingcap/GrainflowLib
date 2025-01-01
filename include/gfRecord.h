@@ -6,7 +6,7 @@ namespace Grainflow
 	class gfRecorder
 	{
 	private:
-		gf_io_config config_{};
+		gf_io_config<> config_{};
 		gf_buffer_info buffer_info_{};
 		size_t write_position_ = 0;
 		std::array<double, INTERNALBLOCK> temp_{0.0};
