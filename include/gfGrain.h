@@ -96,6 +96,16 @@ namespace Grainflow
 			density.base = 1;
 		}
 
+		~gf_grain()
+		{
+			delete buffer_ref;
+			delete envelope_ref;
+			delete delay_buf_ref;
+			delete rate_buf_ref;
+			delete window_buf_ref;
+			delete glisson_buffer;
+		}
+
 		inline void process(gf_io_config<SigType>& io_config)
 		{
 			if (!enabled && !enabled_internal_) return;
