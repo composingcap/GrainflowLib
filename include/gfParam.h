@@ -158,7 +158,6 @@ namespace Grainflow
 		else if (param == "amp") { out_param_name = gf_param_name::amplitude; }
 		else if (param == "space") { out_param_name = gf_param_name::space; }
 		else if (param == "envelopePosition") { out_param_name = gf_param_name::envelope_position; }
-		else if (param == "nEnvelopes") { out_param_name = gf_param_name::n_envelopes; }
 		else if (param == "direction") { out_param_name = gf_param_name::direction; }
 		else if (param == "startPoint") { out_param_name = gf_param_name::start_point; }
 		else if (param == "stopPoint") { out_param_name = gf_param_name::stop_point; }
@@ -170,6 +169,14 @@ namespace Grainflow
 		else if (param == "transpose") { out_param_name = gf_param_name::transpose; }
 		else if (param == "glissonSt") { out_param_name = gf_param_name::glisson_st; }
 		else if (param == "stream") { out_param_name = gf_param_name::stream; }
+
+		else if (param == "nEnvelopes")
+		{
+			out_param_name = gf_param_name::n_envelopes;
+			out_param_type = gf_param_type::value;
+		}
+
+
 
 
 		if (out_param_name == gf_param_name::ERR) return false;

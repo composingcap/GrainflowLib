@@ -3,6 +3,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <atomic>
 #include<numeric>
 #include "gfEnvelopes.h"
 #include "gfUtils.h"
