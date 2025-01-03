@@ -110,19 +110,19 @@ namespace Grainflow
 		else if (reflectionString == "env" || reflectionString == "envelope") {
 			type = gf_buffers::envelope;
 		}
-		else if (reflectionString == "delay" || reflectionString == "delays")
+		else if (reflectionString == "delay" || reflectionString == "delays" || reflectionString == "delayBuffer")
 		{
 			type = gf_buffers::delay_buffer;
 		}
-		else if (reflectionString == "window" || reflectionString == "windows")
+		else if (reflectionString == "window" || reflectionString == "windows" || reflectionString == "windowBuffer")
 		{
 			type = gf_buffers::window_buffer;
 		}
-		else if (reflectionString == "glisson")
+		else if (reflectionString == "glisson" || reflectionString == "glissonBuffer")
 		{
 			type = gf_buffers::glisson_buffer;
 		}
-		else if (reflectionString == "rate" || reflectionString == "rates")
+		else if (reflectionString == "rate" || reflectionString == "rates" || reflectionString == "rateBuffer")
 		{
 			type = gf_buffers::rate_buffer;
 		}
@@ -146,6 +146,11 @@ namespace Grainflow
 		{
 			out_param_type = gf_param_type::offset;
 			param.erase(pos, 6);
+		}			
+		else if (const auto pos = param.find("Mode"); pos != std::string::npos)
+		{
+			out_param_type = gf_param_type::mode;
+			param.erase(pos, 4);
 		}
 		else out_param_type = gf_param_type::base;
 		if (out_param_type == gf_param_type::ERR) return false;
