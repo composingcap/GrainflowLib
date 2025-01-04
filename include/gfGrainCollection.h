@@ -213,7 +213,13 @@ namespace Grainflow
 	                                                      gf_param_type param_type,
 	                                                      float value)
 	{
-		if (target > grain_count_ + 1) return;
+		if (target > grain_count_ + 1) {return;}
+		if (param_name == gf_param_name::stream)
+			{
+				if (target < 1) {return;}
+				stream_set(target-1, static_cast<int>(value));
+				return;
+			}
 		transform_params(param_name, param_type, value);
 		if (target <= 0)
 		{
@@ -236,11 +242,7 @@ namespace Grainflow
 		if (const auto found_reflection = Grainflow::param_reflection(reflection_string, param_name, param_type); !
 			found_reflection)
 			return GF_RETURN_CODE::GF_PARAM_NOT_FOUND;
-		if (param_name == gf_param_name::stream)
-		{
-			stream_set(target, static_cast<int>(value));
-			return GF_RETURN_CODE::GF_SUCCESS;
-		}
+
 		param_set(target, param_name, param_type, value);
 		return GF_RETURN_CODE::GF_SUCCESS;
 	}
