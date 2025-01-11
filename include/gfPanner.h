@@ -68,7 +68,7 @@ namespace Grainflow
 			position = static_cast<float>(std::max(
 				gf_utils::mod(position + n_outputs * 5, n_outputs),
 				0.0));
-			position = static_cast<float>(gf_utils::round(position, quantization));
+			position = gf_utils::mod(static_cast<float>(gf_utils::round(position, quantization)), output_channels);
 
 			for (int i = 0; i < block_size; i++)
 			{
@@ -143,6 +143,7 @@ namespace Grainflow
 			const auto quantization = pan_quantization.load();
 			const auto blocks = block_size / InternalBlock;
 			const auto output_chans = output_channels_.load();
+			if (output_chans < 1) return;
 
 			for (int ch = 0; ch < channels_; ++ch)
 			{
