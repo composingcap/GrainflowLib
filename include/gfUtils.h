@@ -2,6 +2,7 @@
 #include  <cmath>
 #pragma intrinsic(fabs)
 #pragma intrinsic(floor)
+#include "gfEnvelopes.h"
 
 namespace Grainflow
 {
@@ -75,6 +76,12 @@ namespace Grainflow
 			step = fabs(step);
 			return step * std::floor(val / (step + static_cast<double>(abs(step) < 0.0001) * 0.01f)) * (step > 0) + val
 				* (step <= 0);
+		}
+
+		static inline double sin_lookup(float n){
+			return gf_envelopes::quarter_sine_wave[static_cast<
+						int>
+					((n) * 4095)];
 		}
 	};
 
