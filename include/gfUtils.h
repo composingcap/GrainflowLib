@@ -83,6 +83,16 @@ namespace Grainflow
 						int>
 					((n) * 4095)];
 		}
+
+		static inline double cubic_hermite (double a, double b, double c, double d, float t)
+		{
+			double A = -a/2.0f + (3.0f*b)/2.0f - (3.0f*c)/2.0f + d/2.0f;
+			double B = a - (5.0f*b)/2.0f + 2.0f*c - d / 2.0f;
+			double C = -a/2.0f + c/2.0f;
+			double D = b;
+		
+			return A*t*t*t + B*t*t + C*t + D;
+		}
 	};
 
 	enum class GF_RETURN_CODE
