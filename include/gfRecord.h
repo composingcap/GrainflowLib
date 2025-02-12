@@ -56,10 +56,21 @@ namespace Grainflow
 						}
 						return;
 					}
-					for (int i = 0; i < INTERNALBLOCK; ++i)
+					if (!freeze)
 					{
-						recorded_head_out[b * INTERNALBLOCK + i] = static_cast<float>(write_position_) / buffer_info_.
-							buffer_frames;
+						for (int i = 0; i < INTERNALBLOCK; ++i)
+						{
+							recorded_head_out[b * INTERNALBLOCK + i] = static_cast<float>(write_position_) /
+								buffer_info_.
+								buffer_frames;
+						}
+					}
+					else
+					{
+						for (int i = 0; i < INTERNALBLOCK; ++i)
+						{
+							recorded_head_out[b * INTERNALBLOCK + i] = write_position_norm;
+						}
 					}
 				}
 				return;
