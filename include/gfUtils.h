@@ -1,5 +1,6 @@
 #pragma once
 #include  <cmath>
+#include <array>
 #pragma intrinsic(fabs)
 #pragma intrinsic(floor)
 #include "gfEnvelopes.h"
@@ -121,6 +122,12 @@ namespace Grainflow
 				if (input_stream[i - 1] - input_stream[i] < -0.5f) return i;
 			}
 			return block_size;
+		static inline float distance_3d(std::array<float, 3>& a, std::array<float, 3>& b)
+		{
+			auto d0 = b[0] - a[0];
+			auto d1 = b[1] - a[1];
+			auto d2 = b[2] - a[2];
+			return std::sqrtf(d0 * d0 + d1 * d1 + d2 * d2);
 		}
 	};
 
