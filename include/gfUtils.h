@@ -1,5 +1,6 @@
 #pragma once
 #include  <cmath>
+#include <array>
 #pragma intrinsic(fabs)
 #pragma intrinsic(floor)
 #include "gfEnvelopes.h"
@@ -78,20 +79,29 @@ namespace Grainflow
 				* (step <= 0);
 		}
 
-		static inline double sin_lookup(float n){
+		static inline double sin_lookup(float n)
+		{
 			return gf_envelopes::quarter_sine_wave[static_cast<
-						int>
-					((n) * 4095)];
+					int>
+				((n) * 4095)];
 		}
 
-		static inline double cubic_hermite (double a, double b, double c, double d, float t)
+		static inline double cubic_hermite(double a, double b, double c, double d, float t)
 		{
-			double A = -a/2.0f + (3.0f*b)/2.0f - (3.0f*c)/2.0f + d/2.0f;
-			double B = a - (5.0f*b)/2.0f + 2.0f*c - d / 2.0f;
-			double C = -a/2.0f + c/2.0f;
+			double A = -a / 2.0f + (3.0f * b) / 2.0f - (3.0f * c) / 2.0f + d / 2.0f;
+			double B = a - (5.0f * b) / 2.0f + 2.0f * c - d / 2.0f;
+			double C = -a / 2.0f + c / 2.0f;
 			double D = b;
-		
-			return A*t*t*t + B*t*t + C*t + D;
+
+			return A * t * t * t + B * t * t + C * t + D;
+		}
+
+		static inline float distance_3d(std::array<float, 3>& a, std::array<float, 3>& b)
+		{
+			auto d0 = b[0] - a[0];
+			auto d1 = b[1] - a[1];
+			auto d2 = b[2] - a[2];
+			return std::sqrtf(d0 * d0 + d1 * d1 + d2 * d2);
 		}
 	};
 
