@@ -1,3 +1,4 @@
+#pragma once
 #include <map>
 #include <array>
 #include <algorithm>
@@ -6,10 +7,11 @@
 
 namespace Grainflow
 {
-	enum spat_pan_mode
+	enum class spat_pan_mode : int
 	{
 		vbap = 0,
 		dbap = 1,
+		enum_count,
 	};
 
 	template <size_t InternalBlock, typename sigtype = double>
@@ -20,7 +22,7 @@ namespace Grainflow
 		void set_source_position(int sourceId, std::array<float, 3>& position)
 		{
 			sourcePositionMap_[sourceId] = position;
-			update_source_gains(sourceId, spat_pan_mode::dbap);
+			update_source_gains(sourceId, pan_mode);
 		}
 
 		void set_speaker_position(int speakerId, std::array<float, 3>& position)
@@ -30,9 +32,11 @@ namespace Grainflow
 
 		void clear_speaker_position()
 		{
-			speakerPositionMap_.clear();
+			sourceToSpeakerGainMapLast_.clear();
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
 			sourceToSpeakerGainMap_.clear();
+			dirtyMap_.clear();
+			speakerPositionMap_.clear();
 		}
 
 		void clear_source_positions()
@@ -40,27 +44,31 @@ namespace Grainflow
 			sourcePositionMap_.clear();
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
 			sourceToSpeakerGainMap_.clear();
+			dirtyMap_.clear();
+			sourceToSpeakerGainMapLast_.clear();
 		}
 
-		void recalculate_all_gains()
+		void recalculate_all_gains(bool clearHistory = false)
 		{
+			if (clearHistory)
+			{
+				std::lock_guard<std::mutex> _lock(update_gain_lock_);
+				dirtyMap_.clear();
+				sourceToSpeakerGainMapLast_.clear();
+			}
 			for (auto& source : sourcePositionMap_)
 			{
-				update_source_gains(source.first, spat_pan_mode::dbap);
+				update_source_gains(source.first, pan_mode);
 			}
 		}
 
+		void process(sigtype** input, sigtype** output, const int inputChannels, const int outputChannels,
+		             const int blockSize)
+		{
+			perform_pan(input, output, inputChannels, outputChannels, blockSize);
+		}
+
 	private:
-		std::map<int, std::array<float, 3>> sourcePositionMap_;
-		std::map<int, std::array<float, 3>> speakerPositionMap_;
-		std::map<int, std::map<int, float>> sourceToSpeakerGainMap_;
-		std::mutex update_gain_lock_;
-
-		float distance_thresh = 2;
-		float n_speakers = 3;
-		float exponent = 1;
-
-
 		void update_source_gains(int sourceId, spat_pan_mode mode)
 		{
 			if (sourcePositionMap_.find(sourceId) == sourcePositionMap_.end()) { return; }
@@ -85,10 +93,21 @@ namespace Grainflow
 			//We need to check if the gain map exists, then create it
 			auto source_to_speaker_map = std::map<int, float>{};
 			std::map<int, float> distance_map;
-			auto source_position = sources[sourceId];
+			std::array<float, 3> source_position;
+			std::array<float, 3> speaker_position;
 			float totalDistance = 0;
+
+			for (int i = 0; i < source_position.size(); ++i)
+			{
+				source_position[i] = dim_mask[i] * sources[sourceId][i];
+			}
+
 			for (auto& speaker : speakers)
 			{
+				for (int i = 0; i < speaker_position.size(); ++i)
+				{
+					speaker_position[i] = dim_mask[i] * speaker.second[i];
+				}
 				distance_map[speaker.first] = gf_utils::distance_3d(source_position, speaker.second);
 			}
 			std::vector<std::pair<int, float>> distance_vec(distance_map.begin(), distance_map.end());
@@ -97,14 +116,18 @@ namespace Grainflow
 			{
 				return a.second < b.second;
 			});
+			int counter = 0;
 			for (auto& entry : distance_vec)
 			{
+				if (counter >= n_speakers && n_speakers > 0) { break; }
 				auto& distance = entry.second;
 				if (distance_thresh > 0 && distance > distance_thresh) { break; }
 				source_to_speaker_map[entry.first] = std::pow(1 - distance / distance_thresh, exponent);
+				++counter;
 			}
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
 			gain_map[sourceId] = source_to_speaker_map;
+			dirtyMap_[sourceId] = true;
 		}
 
 		void set_volume_vbap(const int sourceId,
@@ -117,12 +140,22 @@ namespace Grainflow
 			//We need to check if the gain map exists, then create it
 			auto source_to_speaker_map = std::map<int, float>{};
 			std::map<int, float> distance_map;
-			auto source_position = sources[sourceId];
-			float totalDistance = 0;
+			std::array<float, 3> source_position;
+			std::array<float, 3> speaker_position;
 
+			float totalDistance = 0;
+			for (int i = 0; i < source_position.size(); ++i)
+			{
+				source_position[i] = dim_mask[i] * sources[sourceId][i];
+			}
 			for (auto& speaker : speakers)
 			{
-				distance_map[speaker.first] = gf_utils::distance_3d(source_position, speaker.second);
+				for (int i = 0; i < speaker_position.size(); ++i)
+				{
+					speaker_position[i] = dim_mask[i] * speaker.second[i];
+				}
+
+				distance_map[speaker.first] = gf_utils::distance_3d(source_position, speaker_position);
 			}
 			std::vector<std::pair<int, float>> distance_vec(distance_map.begin(), distance_map.end());
 
@@ -133,11 +166,11 @@ namespace Grainflow
 			int count = 0;
 			for (auto& entry : distance_vec)
 			{
-				++count;
+				if (count >= n_speakers && n_speakers > 0) break;
 				auto& distance = entry.second;
 				//if (distance_thresh > 0 && distance > distance_thresh) { break; }
 				totalDistance += distance;
-				if (count >= n_speakers) break;
+				++count;
 			}
 
 
@@ -150,15 +183,16 @@ namespace Grainflow
 			count = 0;
 			for (auto& entry : distance_vec)
 			{
-				++count;
+				if (count >= n_speakers && n_speakers > 0) break;
 				auto& id = entry.first;
 				auto& distance = entry.second;
 				if (distance_thresh > 0 && distance > distance_thresh) { break; }
 				source_to_speaker_map[id] = std::pow(1 - distance / totalDistance, exponent);
-				if (count >= n_speakers) break;
+				++count;
 			}
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
 			gain_map[sourceId] = source_to_speaker_map;
+			dirtyMap_[sourceId] = true;
 		}
 
 		void perform_pan(sigtype** __restrict input, sigtype** __restrict output, const int inputChannels,
@@ -166,34 +200,97 @@ namespace Grainflow
 		{
 			if (sourceToSpeakerGainMap_.empty()) { return; }
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
+
 			for (auto& source_pair : sourceToSpeakerGainMap_)
 			{
 				auto i = source_pair.first;
 				if (i < 0 || i >= inputChannels) { continue; }
 				auto& source_map = source_pair.second;
+
+				if (!dirtyMap_[i])
+				{
+					// Pan without interpolation 
+					for (auto& gains_pairs : source_map)
+					{
+						const auto output_index = gains_pairs.first;
+						if (output_index >= outputChannels) { continue; }
+						const auto gain = gains_pairs.second;
+
+						for (int j = 0; j < blockSize / InternalBlock; ++j)
+						{
+							const auto subOutBuffer = &output[output_index][j * InternalBlock];
+							const auto subInBuffer = &input[i][j * InternalBlock];
+
+							for (int k = 0; k < InternalBlock; ++k)
+							{
+								subOutBuffer[k] += subInBuffer[k] * gain;
+							}
+						}
+					}
+					continue;
+				}
+
+				//Pan with interpolation 
+				float mix_increment = 1.0f / blockSize;
+				if (sourceToSpeakerGainMapLast_.find(source_pair.first) != sourceToSpeakerGainMapLast_.end())
+				{
+					auto source_map_last = sourceToSpeakerGainMapLast_[source_pair.first];
+					for (auto& gains_pairs : source_map_last)
+					{
+						const auto output_index = gains_pairs.first;
+						if (output_index >= outputChannels) { continue; }
+						const auto gain = gains_pairs.second;
+
+						for (int j = 0; j < blockSize / InternalBlock; ++j)
+						{
+							const auto subOutBuffer = &output[output_index][j * InternalBlock];
+							const auto subInBuffer = &input[i][j * InternalBlock];
+
+							for (int k = 0; k < InternalBlock; ++k)
+							{
+								float mix = 1 - mix_increment * (InternalBlock * j + k);
+								subOutBuffer[k] += subInBuffer[k] * gain * (mix);
+							}
+						}
+					}
+				}
+
 				for (auto& gains_pairs : source_map)
 				{
 					const auto output_index = gains_pairs.first;
 					if (output_index >= outputChannels) { continue; }
 					const auto gain = gains_pairs.second;
+
 					for (int j = 0; j < blockSize / InternalBlock; ++j)
 					{
 						const auto subOutBuffer = &output[output_index][j * InternalBlock];
 						const auto subInBuffer = &input[i][j * InternalBlock];
+
 						for (int k = 0; k < InternalBlock; ++k)
 						{
-							subOutBuffer[k] += subInBuffer[k] * gain;
+							float mix = mix_increment * (InternalBlock * j + k);
+							subOutBuffer[k] += subInBuffer[k] * gain * mix;
 						}
 					}
 				}
+				sourceToSpeakerGainMapLast_[i] = source_map;
+				dirtyMap_[i] = false;
 			}
 		}
 
+	private:
+		std::map<int, std::array<float, 3>> sourcePositionMap_;
+		std::map<int, std::array<float, 3>> speakerPositionMap_;
+		std::map<int, std::map<int, float>> sourceToSpeakerGainMap_;
+		std::map<int, std::map<int, float>> sourceToSpeakerGainMapLast_;
+		std::map<int, bool> dirtyMap_;
+		std::mutex update_gain_lock_;
+
 	public:
-		void process(sigtype** input, sigtype** output, const int inputChannels, const int outputChannels,
-		             const int blockSize)
-		{
-			perform_pan(input, output, inputChannels, outputChannels, blockSize);
-		}
+		float distance_thresh = 2;
+		int n_speakers = 3;
+		float exponent = 1;
+		spat_pan_mode pan_mode;
+		std::array<float, 3> dim_mask{1, 1, 1};
 	};
 }
