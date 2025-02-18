@@ -68,6 +68,12 @@ namespace Grainflow
 			perform_pan(input, output, inputChannels, outputChannels, blockSize);
 		}
 
+		std::vector<float> get_peakamps()
+		{
+			std::lock_guard<std::mutex> _lock(update_gain_lock_);
+			return {peakamps_.begin(), peakamps_.begin() + channelCount_};
+		}
+
 	private:
 		void update_source_gains(int sourceId, spat_pan_mode mode)
 		{
@@ -195,6 +201,7 @@ namespace Grainflow
 			dirtyMap_[sourceId] = true;
 		}
 
+
 		void perform_pan(sigtype** __restrict input, sigtype** __restrict output, const int inputChannels,
 		                 const int outputChannels, const int blockSize)
 		{
@@ -276,6 +283,23 @@ namespace Grainflow
 				sourceToSpeakerGainMapLast_[i] = source_map;
 				dirtyMap_[i] = false;
 			}
+			channelCount_ = outputChannels;
+			if (outputChannels > peakamps_.size()) { peakamps_.resize(outputChannels); };
+			//todo optimize 
+			for (int i = 0; i < outputChannels; ++i)
+			{
+				auto maxVal = std::abs(output[i][0]);
+				for (int j = 0; j < blockSize / InternalBlock; ++j)
+				{
+					const auto subOutBuffer = &output[i][j * InternalBlock];
+					maxVal = std::max(maxVal, std::abs(subOutBuffer[0]));
+					//for (int k = 0; k < InternalBlock; ++k)
+					//{
+					//	maxVal = std::max(maxVal, std::abs(subOutBuffer[k]));
+					//}
+				}
+				peakamps_[i] = maxVal;
+			}
 		}
 
 	private:
@@ -284,7 +308,9 @@ namespace Grainflow
 		std::map<int, std::map<int, float>> sourceToSpeakerGainMap_;
 		std::map<int, std::map<int, float>> sourceToSpeakerGainMapLast_;
 		std::map<int, bool> dirtyMap_;
+		std::vector<float> peakamps_;
 		std::mutex update_gain_lock_;
+		int channelCount_;
 
 	public:
 		float distance_thresh = 2;
