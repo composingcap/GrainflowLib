@@ -144,6 +144,7 @@ namespace Grainflow
 				if (input_stream[i - 1] - input_stream[i] < -0.5f) return i;
 			}
 			return block_size;
+		}
 		static inline float distance_3d(std::array<float, 3>& a, std::array<float, 3>& b)
 		{
 			auto d0 = b[0] - a[0];
@@ -152,7 +153,7 @@ namespace Grainflow
 			return std::sqrtf(d0 * d0 + d1 * d1 + d2 * d2);
 		}
 	};
-
+	
 
 	enum class GF_RETURN_CODE
 	{
@@ -161,3 +162,4 @@ namespace Grainflow
 		GF_PARAM_NOT_FOUND = 2,
 	};
 }
+

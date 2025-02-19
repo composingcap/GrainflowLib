@@ -68,10 +68,15 @@ namespace Grainflow
 			perform_pan(input, output, inputChannels, outputChannels, blockSize);
 		}
 
-		std::vector<float> get_peakamps()
+		void get_data_outputs(std::vector<float>& speakers, std::vector<float>& grains,
+		                      std::map<int, std::array<float, 3>>& speakerPositions,
+		                      std::map<int, std::array<float, 3>>& grainPositions)
 		{
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
-			return {peakamps_.begin(), peakamps_.begin() + channelCount_};
+			speakers.assign(speaker_amps_.begin(), speaker_amps_.begin() + channelCount_);
+			grains.assign(grain_amps_.begin(), grain_amps_.begin() + grainCount_);
+			grainPositions = sourcePositionMap_;
+			speakerPositions = speakerPositionMap_;
 		}
 
 	private:
@@ -284,7 +289,8 @@ namespace Grainflow
 				dirtyMap_[i] = false;
 			}
 			channelCount_ = outputChannels;
-			if (outputChannels > peakamps_.size()) { peakamps_.resize(outputChannels); };
+			grainCount_ = inputChannels;
+			if (outputChannels > speaker_amps_.size()) { speaker_amps_.resize(outputChannels); };
 			//todo optimize 
 			for (int i = 0; i < outputChannels; ++i)
 			{
@@ -298,7 +304,23 @@ namespace Grainflow
 					//	maxVal = std::max(maxVal, std::abs(subOutBuffer[k]));
 					//}
 				}
-				peakamps_[i] = maxVal;
+				speaker_amps_[i] = maxVal;
+			}
+			if (inputChannels > grain_amps_.size()) { grain_amps_.resize(inputChannels); };
+
+			for (int i = 0; i < inputChannels; ++i)
+			{
+				auto maxVal = std::abs(input[i][0]);
+				for (int j = 0; j < blockSize / InternalBlock; ++j)
+				{
+					const auto subOutBuffer = &input[i][j * InternalBlock];
+					maxVal = std::max(maxVal, std::abs(subOutBuffer[0]));
+					//for (int k = 0; k < InternalBlock; ++k)
+					//{
+					//	maxVal = std::max(maxVal, std::abs(subOutBuffer[k]));
+					//}
+				}
+				grain_amps_[i] = maxVal;
 			}
 		}
 
@@ -308,9 +330,11 @@ namespace Grainflow
 		std::map<int, std::map<int, float>> sourceToSpeakerGainMap_;
 		std::map<int, std::map<int, float>> sourceToSpeakerGainMapLast_;
 		std::map<int, bool> dirtyMap_;
-		std::vector<float> peakamps_;
+		std::vector<float> speaker_amps_;
+		std::vector<float> grain_amps_;
 		std::mutex update_gain_lock_;
-		int channelCount_;
+		int channelCount_{0};
+		int grainCount_{0};
 
 	public:
 		float distance_thresh = 2;
