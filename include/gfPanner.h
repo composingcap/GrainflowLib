@@ -157,7 +157,6 @@ namespace Grainflow
 					                                            std::plus<sigtype>{},
 					                                            static_cast<sigtype(*)(sigtype)>(std::fabs));
 					if (absSum <= 0.0){
-						last_position_[ch] = 0.0;
 						continue;
 					}
 					auto idx = detect_one_transition(states, InternalBlock, last_samples_, ch);
