@@ -1,5 +1,5 @@
 #include "gfIBufferReader.h"
-
+#include <atomic>
 namespace Grainflow
 {
 	template <typename T, size_t INTERNALBLOCK, typename SigType = double>
@@ -13,6 +13,7 @@ namespace Grainflow
 		gf_i_buffer_reader<T, SigType> buffer_reader_{};
 
 	public:
+		std::array<std::atomic<float>,2> recRange {0.0, 1.0};
 		SigType write_position_norm = 0.0;
 		SigType write_position_ms = 0.0;
 		int write_position_samps = 0;
@@ -44,6 +45,12 @@ namespace Grainflow
 		             SigType* __restrict recorded_head_out)
 		{
 			const auto blocks = frames / INTERNALBLOCK;
+			float recBase = recRange[0].load();
+			float rangeMax = recRange[1].load();
+			float recRangeSize = std::abs(rangeMax - recBase);
+			float recRangeSign = rangeMax < recBase ? -1 : 1;
+
+
 			if (!state)
 			{
 				for (int b = 0; b < blocks; ++b)
@@ -85,11 +92,15 @@ namespace Grainflow
 				write_position_ms = 0;
 				return;
 			}
+
 			if (sync)
 			{
-				write_position_ = gf_utils::mod(time_override, 1) * buffer_info_.buffer_frames;
+				write_position_ = buffer_info_.buffer_frames*(gf_utils::mod(time_override, 1));
 			}
 			if (buffer_info_.buffer_frames == 0) return;
+			int sampleRange = buffer_info_.buffer_frames*recRangeSize;
+		    int sampleBase = buffer_info_.buffer_frames * recBase;
+			int increment = INTERNALBLOCK*recRangeSign;
 			for (int b = 0; b < blocks; ++b)
 			{
 				for (int c = 0; c < channels; ++c)
@@ -105,7 +116,7 @@ namespace Grainflow
 						recorded_head_out[b * INTERNALBLOCK + i] = static_cast<float>((write_position_ + i) %
 							buffer_info_.buffer_frames) / buffer_info_.buffer_frames;
 					}
-					write_position_ = (write_position_ + INTERNALBLOCK) % buffer_info_.buffer_frames;
+					write_position_ = ((write_position_ + increment) + sampleRange) % sampleRange+sampleBase;
 					write_position_samps = write_position_;
 					write_position_norm = static_cast<float>((write_position_samps + INTERNALBLOCK) % buffer_info_.
 						buffer_frames) / buffer_info_.buffer_frames;
@@ -117,7 +128,8 @@ namespace Grainflow
 					{
 						recorded_head_out[b * INTERNALBLOCK + i] = write_position_norm;
 					}
-					write_position_ = (write_position_ + INTERNALBLOCK) % buffer_info_.buffer_frames;
+
+					write_position_ = ((write_position_ + increment) + sampleRange) % sampleRange + sampleBase;
 				}
 			}
 		}
