@@ -511,12 +511,12 @@ namespace Grainflow
 				last_position = sample_positions[i];
 			}
 			source_sample = sample_positions[size - 1] + sample_delta_temp[size - 1];
-			source_sample = gf_utils::pong(source_sample, start, end, fold);
+			source_sample = gf_utils::pong(source_sample, start, end+1, fold);
 			source_sample = std::clamp(source_sample, start, end);
 
 			for (int i = 0; i < size; i++)
 			{
-				sample_positions[i] = gf_utils::pong(sample_positions[i], start, end, fold);
+				sample_positions[i] = gf_utils::pong(sample_positions[i], start, end+1, fold);
 			}
 			for (int i = 0; i < size; i++)
 			{
