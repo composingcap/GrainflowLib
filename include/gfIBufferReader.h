@@ -20,7 +20,7 @@ namespace Grainflow
 	public:
 		bool (*sample_param_buffer)(T* buffer, gf_param* param, int grain_id) = nullptr;
 		void (*sample_buffer)(T* buffer, int channel, SigType* __restrict samples, const SigType* positions,
-		                      const int size) = nullptr;
+		                      const int size, const float lower_bound, const float upper_bound) = nullptr;
 		bool (*update_buffer_info)(T* buffer, const gf_io_config<SigType>& io_config, gf_buffer_info* buffer_info) =
 			nullptr;
 		void (*sample_envelope)(T* buffer, const bool use_default, const int n_envelopes, const float env2d_pos,

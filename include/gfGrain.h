@@ -160,7 +160,7 @@ namespace Grainflow
 				if (sample_id_temp_[0] != sample_id_temp_[0]) continue; //Nan check
 				if (buffer_valid)
 					buffer_reader.sample_buffer(buffer_ref, channel.value, grain_output, sample_id_temp_,
-					                            Blocksize);
+					                            Blocksize, start_point.value, stop_point.value);
 				expand_value_table(valueFrames, grain_state, amp_temp_, density_temp_, Blocksize);
 				output_block(sample_id_temp_, amp_temp_, density_temp_, buffer_info.one_over_buffer_frames, stream,
 				             input_amp, grain_playhead, grain_amp, grain_envelope, grain_output, grain_streams,
@@ -472,10 +472,10 @@ namespace Grainflow
 		{
 			const int fold = loop_mode.base > 1.1f ? 1 : 0;
 			const SigType start_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * start_point.value,
-			                                   static_cast<SigType>(buffer_info.buffer_frames) - 1);
+			                                   static_cast<SigType>(buffer_info.buffer_frames));
 			const SigType end_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * stop_point.value,
-			                                 static_cast<SigType>(buffer_info.buffer_frames) - 1);
-
+			                                 static_cast<SigType>(buffer_info.buffer_frames));
+			if (start_tmp == end_tmp) return;
 			const SigType start = std::min(start_tmp, end_tmp);
 			//Need to check the order in case a user feeds us these out of order
 			const SigType end = std::max(start_tmp, end_tmp);
@@ -511,16 +511,11 @@ namespace Grainflow
 				last_position = sample_positions[i];
 			}
 			source_sample = sample_positions[size - 1] + sample_delta_temp[size - 1];
-			source_sample = gf_utils::pong(source_sample, start, end+1, fold);
-			source_sample = std::clamp(source_sample, start, end);
+			source_sample = gf_utils::pong(source_sample, start, end, fold);
 
 			for (int i = 0; i < size; i++)
 			{
-				sample_positions[i] = gf_utils::pong(sample_positions[i], start, end+1, fold);
-			}
-			for (int i = 0; i < size; i++)
-			{
-				sample_positions[i] = std::clamp(sample_positions[i], start, end);
+				sample_positions[i] = gf_utils::pong(sample_positions[i], start, end, fold);
 			}
 		}
 
