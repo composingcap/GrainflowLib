@@ -13,14 +13,12 @@ namespace Grainflow
 	public:
 		static inline float deviate(const float center, const float range, [[maybe_unused]] float empty = 0)
 		{
-			std::random_device rd;
-			return center + (static_cast<float>(rd() % 10000) * 0.0001f - 0.5f) * 2 * range;
+			return center + (static_cast<float>(rand() % 10000) * 0.0001f - 0.5f) * 2 * range;
 		}
 
 		static inline float random_range(const float bottom, const float top, [[maybe_unused]] float empty = 0)
 		{
-			std::random_device rd;
-			return lerp(bottom, top, rd() % 10000 * 0.0001f);
+			return lerp(bottom, top, rand() % 10000 * 0.0001f);
 		}
 
 		static inline float lerp(const float lower, const float upper, const float position)
