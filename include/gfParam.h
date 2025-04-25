@@ -48,6 +48,13 @@ namespace Grainflow
 		value,
 	};
 
+	enum class gf_random_mode : std::uint8_t
+	{
+		bipolar = 0,
+		positive = 1,
+		negative = 2,
+	};
+
 	struct gf_value_table
 	{
 		float delay;
@@ -95,19 +102,41 @@ namespace Grainflow
 
 	struct gf_param
 	{
+	public:
 		float base = 0;
 		float random = 0;
 		float offset = 0;
 		float value = 0;
 		gf_buffer_mode mode = gf_buffer_mode::normal;
+
+		void sample(int offset_id = 0, gf_random_mode random_mode = gf_random_mode::bipolar)
+		{
+			float random_value = 0.0f;
+			switch (random_mode)
+			{
+			case gf_random_mode::bipolar:
+				random_value = gf_utils::deviate(0, random);
+				break;
+			case gf_random_mode::negative:
+				random_value = gf_utils::random_range(0, -random);
+				break;
+			case gf_random_mode::positive:
+				random_value = gf_utils::random_range(0, random);
+				break;
+			}
+
+			value = base + offset * offset_id + random_value;
+		}
 	};
 
 	static bool buffer_reflection(std::string reflectionString, gf_buffers& type)
 	{
-		if (reflectionString == "buf" || reflectionString == "buffer") {
+		if (reflectionString == "buf" || reflectionString == "buffer")
+		{
 			type = gf_buffers::buffer;
 		}
-		else if (reflectionString == "env" || reflectionString == "envelope") {
+		else if (reflectionString == "env" || reflectionString == "envelope")
+		{
 			type = gf_buffers::envelope;
 		}
 		else if (reflectionString == "delay" || reflectionString == "delays" || reflectionString == "delayBuffer")
@@ -126,7 +155,8 @@ namespace Grainflow
 		{
 			type = gf_buffers::rate_buffer;
 		}
-		else {
+		else
+		{
 			return false;
 		}
 		return true;
@@ -146,7 +176,7 @@ namespace Grainflow
 		{
 			out_param_type = gf_param_type::offset;
 			param.erase(pos, 6);
-		}			
+		}
 		else if (const auto pos = param.find("Mode"); pos != std::string::npos)
 		{
 			out_param_type = gf_param_type::mode;
@@ -180,8 +210,6 @@ namespace Grainflow
 			out_param_name = gf_param_name::n_envelopes;
 			out_param_type = gf_param_type::value;
 		}
-
-
 
 
 		if (out_param_name == gf_param_name::ERR) return false;

@@ -76,20 +76,45 @@ namespace Grainflow
 				* (step <= 0);
 		}
 
-		static inline double sin_lookup(float n){
+		static inline double sin_lookup(float n)
+		{
 			return gf_envelopes::quarter_sine_wave[static_cast<
-						int>
-					((n) * 4095)];
+					int>
+				((n) * 4095)];
 		}
 
-		static inline double cubic_hermite (double a, double b, double c, double d, float t)
+		static inline double cos_lookup(float n)
 		{
-			double A = -a/2.0f + (3.0f*b)/2.0f - (3.0f*c)/2.0f + d/2.0f;
-			double B = a - (5.0f*b)/2.0f + 2.0f*c - d / 2.0f;
-			double C = -a/2.0f + c/2.0f;
+			return gf_envelopes::quarter_sine_wave[static_cast<
+					int>
+				((n + 0.25) * 4095) % 4096];
+		}
+
+		static inline double cubic_hermite(double a, double b, double c, double d, float t)
+		{
+			double A = -a / 2.0f + (3.0f * b) / 2.0f - (3.0f * c) / 2.0f + d / 2.0f;
+			double B = a - (5.0f * b) / 2.0f + 2.0f * c - d / 2.0f;
+			double C = -a / 2.0f + c / 2.0f;
 			double D = b;
-		
-			return A*t*t*t + B*t*t + C*t + D;
+
+			return A * t * t * t + B * t * t + C * t + D;
+		}
+
+		template <typename Sigtype = double>
+		static int detect_one_transition(const Sigtype* __restrict input_stream, const int block_size,
+		                                 Sigtype* __restrict last_sample, const int channel)
+		{
+			if (last_sample[channel] - input_stream[0] < -0.5f)
+			{
+				last_sample[channel] = input_stream[block_size - 1];
+				return 0;
+			}
+			last_sample[channel] = input_stream[block_size - 1];
+			for (int i = 1; i < block_size; ++i)
+			{
+				if (input_stream[i - 1] - input_stream[i] < -0.5f) return i;
+			}
+			return block_size;
 		}
 	};
 

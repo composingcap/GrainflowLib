@@ -28,21 +28,6 @@ namespace Grainflow
 		std::vector<float> last_position_ = {0};
 		std::mutex lock_;
 
-		static int detect_one_transition(const sigtype* __restrict input_stream, const int block_size,
-		                                 std::vector<sigtype>& last_sample, const int channel)
-		{
-			if (last_sample[channel] - input_stream[0] < -0.5f)
-			{
-				last_sample[channel] = input_stream[block_size - 1];
-				return 0;
-			}
-			last_sample[channel] = input_stream[block_size - 1];
-			for (int i = 1; i < block_size; ++i)
-			{
-				if (input_stream[i - 1] - input_stream[i] < -0.5f) return i;
-			}
-			return block_size;
-		}
 
 		static void determine_pan_position(const int idx, const size_t block_size, const int channels,
 		                                   const float pan_center,
@@ -154,12 +139,14 @@ namespace Grainflow
 					auto states = &grain_states[ch][this_block];
 
 					const sigtype absSum = std::transform_reduce(states, &states[InternalBlock], 0,
-					                                            std::plus<sigtype>{},
-					                                            static_cast<sigtype(*)(sigtype)>(std::fabs));
-					if (absSum <= 0.0){
+					                                             std::plus<sigtype>{},
+					                                             static_cast<sigtype(*)(sigtype)>(std::fabs));
+					if (absSum <= 0.0)
+					{
 						continue;
 					}
-					auto idx = detect_one_transition(states, InternalBlock, last_samples_, ch);
+					auto idx = gf_utils::detect_one_transition<
+						sigtype>(states, InternalBlock, last_samples_.data(), ch);
 
 					determine_pan_position(idx, InternalBlock, channels_, position, spread, quantization,
 					                       last_position_, ch, output_chans, positions_);
