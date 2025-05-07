@@ -26,7 +26,9 @@ namespace Grainflow
 		void (*sample_envelope)(T* buffer, const bool use_default, const int n_envelopes, const float env2d_pos,
 		                        SigType* __restrict samples, const SigType* __restrict grain_clock,
 		                        const int size) = nullptr;
-		void (*write_buffer)(T* buffer, const int channel, const SigType* samples, SigType* __restrict scratch,
-		                     const int start_position, const float overdub, const int size) = nullptr;
+		void (*write_buffer)(T* buffer, const int channel, const SigType* samples,
+		                     const int start_position, const int size) = nullptr;
+		void (*read_buffer)(T* buffer, int channel, SigType* __restrict samples, int start_sample,
+		                    const int size) = nullptr;
 	};
 }
