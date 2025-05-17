@@ -14,7 +14,7 @@ namespace Grainflow
 		float b1{0};
 		float b2{0};
 
-		static void lerp_block(biquad_params& a, biquad_params& b, const SigType amount, const int blocksize,
+		inline static void lerp_block(biquad_params& a, biquad_params& b, const SigType amount, const int blocksize,
 		                       biquad_params* params_block)
 		{
 			for (int i = 0; i < blocksize; ++i)
@@ -28,7 +28,7 @@ namespace Grainflow
 			}
 		}
 
-		static void split_block(biquad_params& a, biquad_params& b, const SigType amount, const int blocksize,
+		inline static void split_block(biquad_params& a, biquad_params& b, const SigType amount, const int blocksize,
 		                        int split,
 		                        biquad_params* params_block)
 		{
@@ -36,9 +36,9 @@ namespace Grainflow
 			std::fill_n(params_block + split, blocksize - split, b);
 		}
 
-		static void bandpass(biquad_params& params, SigType center, SigType q, int fs)
+		inline static void bandpass(biquad_params& params, float center, float q, int fs)
 		{
-			const float omega = M_2_PI * std::max(center, 1) / fs;
+			const float omega = M_2_PI * std::max<float>(center*10, 1.0f) / fs;
 			const float sn = std::sin(omega);
 			const float cs = std::cos(omega);
 			float alpha = sn * 0.5 / q;
@@ -50,11 +50,11 @@ namespace Grainflow
 			params.a2 = (1.0f - alpha) * a0;
 		}
 
-		static void morph(biquad_params& params, const SigType center, const SigType q,
+		inline static void morph(biquad_params& params, const SigType center, const SigType q,
 		                  const SigType morph, const int fs)
 		{
-			const SigType freq = std::min(std::max(center, 1.0), fs * 0.5);
-			const float omega = M_2_PI * freq / fs;
+			const SigType freq = std::min(std::max(center, 1.0), fs * 0.5)*10;
+			const float omega = M_2_PI * std::max<float>(freq, 1.0f) / fs;
 			const float sn = std::sin(omega);
 			const float cs = std::cos(omega);
 			const float alpha = sn * 0.5 / std::max(q, 0.01);
@@ -109,7 +109,7 @@ namespace Grainflow
 			std::fill_n(mem, 4, 0);
 		}
 
-		void perform(SigType* __restrict block, const int blocksize, const biquad_params<SigType>& params,
+		inline void perform(SigType* __restrict block, const int blocksize, const biquad_params<SigType>& params,
 		             SigType* __restrict out)
 		{
 			for (int i = 0; i < blocksize; ++i)
@@ -124,7 +124,7 @@ namespace Grainflow
 			}
 		}
 
-		void perform(SigType* __restrict block, const int blocksize,
+		inline void perform(SigType* __restrict block, const int blocksize,
 		             const biquad_params<SigType>* __restrict params_block,
 		             SigType* __restrict out)
 		{
@@ -142,7 +142,7 @@ namespace Grainflow
 		}
 
 
-		static void get_needed_mem_size(int& mem_size)
+		inline static void get_needed_mem_size(int& mem_size)
 		{
 			mem_size = mem_needed;
 		}

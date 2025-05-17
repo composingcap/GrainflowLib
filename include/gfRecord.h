@@ -21,7 +21,7 @@ namespace Grainflow
 		gf_io_config<SigType> config_{};
 		gf_buffer_info buffer_info_{};
 		size_t write_position_ = 0;
-		std::array<std::array<SigType, INTERNALBLOCK>, 5> temp_{0.0};
+		std::array<std::array<SigType, INTERNALBLOCK>, 4> temp_;
 
 		gf_i_buffer_reader<T, SigType> buffer_reader_{};
 
@@ -65,72 +65,94 @@ namespace Grainflow
 		//TODO try not to use 5 temp buffers
 		void write_with_filters(SigType** input, T* buffer, int block, int channels)
 		{
-			for (int c = 0; c < channels; ++c)
+			//for (int c = 0; c < channels; ++c)
+			//{
+			int c = 0;
+			const auto input_samps = input[c] + block * INTERNALBLOCK;
+
+			buffer_reader_.read_buffer(buffer, c, temp_[0].data(), write_position_, INTERNALBLOCK);
+
+
+			auto& sample_data = temp_[0];
+			auto& filter_samples = temp_[1];
+			auto& filter_output = temp_[2];
+			auto& filter_output_unmixed = temp_[3];
+
+			std::fill(filter_output.begin(), filter_output.end(), 0);
+			std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
+
+			//Perform filters on samples in buffer
+			for (auto& filter : filter_data_)
 			{
-				const auto samps = input[c] + block * INTERNALBLOCK;
-				std::fill(temp_[2].begin(), temp_[2].end(), 0);
-				buffer_reader_.read_buffer(buffer, c, temp_[0].data(), write_position_, INTERNALBLOCK);
-				for (auto& filter : filter_data_)
-				{
-					const auto old_mix = 1 - filter.overdub;
-					if (old_mix > 0)
-					{
-						filter.od_filter.perform(temp_[0].data(), INTERNALBLOCK, filter.filter_params,
-						                         temp_[1].data());
+				const auto old_mix = filter.overdub;
 
+				filter.od_filter.perform(sample_data.data(), INTERNALBLOCK, filter.filter_params,
+				                         filter_samples.data());
 
-						std::transform(temp_[1].begin(), temp_[1].end(), temp_[2].begin(),
-						               temp_[2].begin(), [old_mix](auto a, auto b)
-						               {
-							               return a * old_mix + b;
-						               });
-
-						std::transform(temp_[1].begin(), temp_[1].end(), temp_[3].begin(),
-						               temp_[3].begin(), [](auto a, auto b)
-						               {
-							               return a + b;
-						               });
-					}
-
-					const auto new_mix = filter.overdub;
-					if (new_mix > 0)
-					{
-						filter.sample_filter.
-						       perform(samps, INTERNALBLOCK, filter.filter_params, temp_[1].data());
-						std::transform(temp_[1].begin(), temp_[1].end(), temp_[2].begin(),
-						               temp_[2].begin(), [old_mix](auto a, auto b)
-						               {
-							               return a * old_mix + b;
-						               });
-						std::transform(temp_[1].begin(), temp_[1].end(), temp_[4].begin(),
-						               temp_[4].begin(), [](auto a, auto b)
-						               {
-							               return a + b;
-						               });
-					}
-				}
-				const auto old_mix = 1 - overdub;
-				std::transform(temp_[1].begin(), temp_[1].end(), temp_[3].begin(),
-				               temp_[1].begin(), [old_mix](auto a, auto b)
+				std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
+				               filter_output.begin(), [old_mix](auto a, auto b)
 				               {
-					               return (a - b) * old_mix;
-				               });
-				const auto new_mix = overdub;
-				std::transform(samps, samps + (INTERNALBLOCK - 1), temp_[4].begin(),
-				               temp_[3].begin(), [new_mix](auto a, auto b)
-				               {
-					               return (a - b) * new_mix;
+					               return a * old_mix + b;
 				               });
 
-				std::transform(temp_[1].begin(), temp_[1].end(), temp_[3].begin(),
-				               temp_[3].begin(), [](auto a, auto b) { return a + b; });
-
-				std::transform(temp_[3].begin(), temp_[3].end(), temp_[2].begin(),
-				               temp_[2].begin(), [](auto a, auto b) { return a + b; });
-
-
-				buffer_reader_.write_buffer(buffer, c, temp_[2].data(), write_position_, INTERNALBLOCK);
+				std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
+				               filter_output_unmixed.begin(), [](auto a, auto b)
+				               {
+					               return a + b;
+				               });
 			}
+
+			//Mix in the old remainder according to overdub 
+			const auto old_mix = overdub;
+
+			std::transform(sample_data.begin(), sample_data.end(), filter_output_unmixed.begin(),
+			               sample_data.begin(), [old_mix](auto a, auto b)
+			               {
+				               return (a - b) * old_mix;
+			               });
+
+			std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
+
+			//Perform filters on input samples 
+			for (auto& filter : filter_data_)
+			{
+				const auto new_mix = 1 - filter.overdub;
+
+				filter.sample_filter.
+				       perform(input_samps, INTERNALBLOCK, filter.filter_params, filter_samples.data());
+
+				std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
+				               filter_output.begin(), [new_mix](auto a, auto b)
+				               {
+					               return a * new_mix + b;
+				               });
+
+				std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
+				               filter_output_unmixed.begin(), [](auto a, auto b)
+				               {
+					               return a + b;
+				               });
+			}
+
+			//Mix in the new remainder according to overdub 
+			const auto new_mix = 1 - overdub;
+
+			std::transform(input_samps, input_samps + INTERNALBLOCK, filter_output_unmixed.begin(),
+			               filter_output_unmixed.begin(), [new_mix](auto a, auto b)
+			               {
+				               return (a - b);
+			               });
+
+			//Mix everything together
+			std::transform(filter_output_unmixed.begin(), filter_output_unmixed.end(), sample_data.begin(),
+			               sample_data.begin(), [](auto a, auto b) { return a + b; });
+
+			std::transform(filter_output.begin(), filter_output.end(), sample_data.begin(),
+			               sample_data.begin(), [](auto a, auto b) { return a + b; });
+
+
+			buffer_reader_.write_buffer(buffer, c, sample_data.data(), write_position_, INTERNALBLOCK);
+			//}
 		}
 
 	public:
@@ -142,6 +164,18 @@ namespace Grainflow
 
 		~gfRecorder()
 		{
+		}
+
+		void set_n_filters(const int number)
+		{
+			filter_data_.resize(number);
+		}
+
+		void set_filter_params(const int& idx, const float& freq, const float& q, const float& mix)
+		{
+			if (idx >= filter_data_.size()) return;
+			biquad_params<SigType>::bandpass(filter_data_[idx].filter_params, freq, q, samplerate);
+			filter_data_[idx].overdub = std::min(1.0f, std::max(0.0f, mix));
 		}
 
 		void get_position(SigType& position_samps, SigType& position_norm, SigType& position_ms)
