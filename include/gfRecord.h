@@ -12,8 +12,8 @@ namespace Grainflow
 		struct filter_data
 		{
 		public:
-			biquad<SigType> sample_filter;
-			biquad<SigType> od_filter;
+			std::vector<biquad<SigType>> sample_filter;
+			std::vector<biquad<SigType>> od_filter;
 			biquad_params<SigType> filter_params;
 			float overdub;
 		};
@@ -22,7 +22,7 @@ namespace Grainflow
 		gf_buffer_info buffer_info_{};
 		size_t write_position_ = 0;
 		std::array<std::array<SigType, INTERNALBLOCK>, 4> temp_;
-
+		int channels_ = 1;
 		gf_i_buffer_reader<T, SigType> buffer_reader_{};
 
 		std::vector<filter_data> filter_data_;
@@ -65,94 +65,96 @@ namespace Grainflow
 		//TODO try not to use 5 temp buffers
 		void write_with_filters(SigType** input, T* buffer, int block, int channels)
 		{
-			//for (int c = 0; c < channels; ++c)
-			//{
-			int c = 0;
-			const auto input_samps = input[c] + block * INTERNALBLOCK;
-
-			buffer_reader_.read_buffer(buffer, c, temp_[0].data(), write_position_, INTERNALBLOCK);
-
-
-			auto& sample_data = temp_[0];
-			auto& filter_samples = temp_[1];
-			auto& filter_output = temp_[2];
-			auto& filter_output_unmixed = temp_[3];
-
-			std::fill(filter_output.begin(), filter_output.end(), 0);
-			std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
-
-			//Perform filters on samples in buffer
-			for (auto& filter : filter_data_)
+			for (int c = 0; c < channels; ++c)
 			{
-				const auto old_mix = filter.overdub;
+				const auto input_samps = input[c] + block * INTERNALBLOCK;
 
-				filter.od_filter.perform(sample_data.data(), INTERNALBLOCK, filter.filter_params,
-				                         filter_samples.data());
+				buffer_reader_.read_buffer(buffer, c, temp_[0].data(), write_position_, INTERNALBLOCK);
 
-				std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
-				               filter_output.begin(), [old_mix](auto a, auto b)
+
+				auto& sample_data = temp_[0];
+				auto& filter_samples = temp_[1];
+				auto& filter_output = temp_[2];
+				auto& filter_output_unmixed = temp_[3];
+
+				std::fill(filter_output.begin(), filter_output.end(), 0);
+				std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
+				if (filter_data_.size() < 0 || filter_data_[0].od_filter.size() < channels)
+				{
+					return;
+				}
+				//Perform filters on samples in buffer
+				for (auto& filter : filter_data_)
+				{
+					const auto old_mix = filter.overdub;
+
+					filter.od_filter[c].perform(sample_data.data(), INTERNALBLOCK, filter.filter_params,
+					                            filter_samples.data());
+
+					std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
+					               filter_output.begin(), [old_mix](auto a, auto b)
+					               {
+						               return a * old_mix + b;
+					               });
+
+					std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
+					               filter_output_unmixed.begin(), [](auto a, auto b)
+					               {
+						               return a + b;
+					               });
+				}
+
+				//Mix in the old remainder according to overdub 
+				const auto old_mix = overdub;
+
+				std::transform(sample_data.begin(), sample_data.end(), filter_output_unmixed.begin(),
+				               sample_data.begin(), [old_mix](auto a, auto b)
 				               {
-					               return a * old_mix + b;
+					               return (a - b) * old_mix;
 				               });
 
-				std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
-				               filter_output_unmixed.begin(), [](auto a, auto b)
+				std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
+
+				//Perform filters on input samples 
+				for (auto& filter : filter_data_)
+				{
+					const auto new_mix = 1 - filter.overdub;
+
+					filter.sample_filter[c].
+						perform(input_samps, INTERNALBLOCK, filter.filter_params, filter_samples.data());
+
+					std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
+					               filter_output.begin(), [new_mix](auto a, auto b)
+					               {
+						               return a * new_mix + b;
+					               });
+
+					std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
+					               filter_output_unmixed.begin(), [](auto a, auto b)
+					               {
+						               return a + b;
+					               });
+				}
+
+				//Mix in the new remainder according to overdub 
+				const auto new_mix = 1 - overdub;
+
+				std::transform(input_samps, input_samps + INTERNALBLOCK, filter_output_unmixed.begin(),
+				               filter_output_unmixed.begin(), [new_mix](auto a, auto b)
 				               {
-					               return a + b;
+					               return (a - b);
 				               });
+
+				//Mix everything together
+				std::transform(filter_output_unmixed.begin(), filter_output_unmixed.end(), sample_data.begin(),
+				               sample_data.begin(), [](auto a, auto b) { return a + b; });
+
+				std::transform(filter_output.begin(), filter_output.end(), sample_data.begin(),
+				               sample_data.begin(), [](auto a, auto b) { return a + b; });
+
+
+				buffer_reader_.write_buffer(buffer, c, sample_data.data(), write_position_, INTERNALBLOCK);
 			}
-
-			//Mix in the old remainder according to overdub 
-			const auto old_mix = overdub;
-
-			std::transform(sample_data.begin(), sample_data.end(), filter_output_unmixed.begin(),
-			               sample_data.begin(), [old_mix](auto a, auto b)
-			               {
-				               return (a - b) * old_mix;
-			               });
-
-			std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
-
-			//Perform filters on input samples 
-			for (auto& filter : filter_data_)
-			{
-				const auto new_mix = 1 - filter.overdub;
-
-				filter.sample_filter.
-				       perform(input_samps, INTERNALBLOCK, filter.filter_params, filter_samples.data());
-
-				std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
-				               filter_output.begin(), [new_mix](auto a, auto b)
-				               {
-					               return a * new_mix + b;
-				               });
-
-				std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
-				               filter_output_unmixed.begin(), [](auto a, auto b)
-				               {
-					               return a + b;
-				               });
-			}
-
-			//Mix in the new remainder according to overdub 
-			const auto new_mix = 1 - overdub;
-
-			std::transform(input_samps, input_samps + INTERNALBLOCK, filter_output_unmixed.begin(),
-			               filter_output_unmixed.begin(), [new_mix](auto a, auto b)
-			               {
-				               return (a - b);
-			               });
-
-			//Mix everything together
-			std::transform(filter_output_unmixed.begin(), filter_output_unmixed.end(), sample_data.begin(),
-			               sample_data.begin(), [](auto a, auto b) { return a + b; });
-
-			std::transform(filter_output.begin(), filter_output.end(), sample_data.begin(),
-			               sample_data.begin(), [](auto a, auto b) { return a + b; });
-
-
-			buffer_reader_.write_buffer(buffer, c, sample_data.data(), write_position_, INTERNALBLOCK);
-			//}
 		}
 
 	public:
@@ -169,6 +171,17 @@ namespace Grainflow
 		void set_n_filters(const int number)
 		{
 			filter_data_.resize(number);
+			set_n_filter_channels(channels_);
+		}
+
+		void set_n_filter_channels(const int number)
+		{
+			channels_ = number;
+			for (auto& filter : filter_data_)
+			{
+				filter.od_filter.resize(number);
+				filter.sample_filter.resize(number);
+			}
 		}
 
 		void set_filter_params(const int& idx, const float& freq, const float& q, const float& mix)
