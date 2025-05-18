@@ -1,6 +1,4 @@
 #include <array>
-#include <c74_max.h>
-
 #include "gfUtils.h"
 
 namespace Grainflow
