@@ -64,7 +64,6 @@ namespace Grainflow
 			}
 		}
 
-		//TODO try not to use 5 temp buffers
 		void write_with_filters(SigType** input, T* buffer, int block, int channels)
 		{
 			for (int c = 0; c < channels; ++c)
@@ -77,53 +76,53 @@ namespace Grainflow
 				auto& sample_data = temp_[0];
 				auto& filter_samples = temp_[1];
 				auto& filter_output = temp_[2];
-				auto& filter_output_unmixed = temp_[3];
+				auto& residual = temp_[3];
 
-				std::fill(filter_output.begin(), filter_output.end(), 0);
-				std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
 				if (filter_data_.size() < 0 || filter_data_[0].od_filter.size() < channels)
 				{
 					return;
 				}
+				std::fill(filter_output.begin(), filter_output.end() , 0); //Clear filter output accumulator
+
 				//Perform filters on samples in buffer
+				std::copy(sample_data.begin(), sample_data.end(), residual.begin()); //Copy buffer results into the residual array
 				for (auto& filter : filter_data_)
 				{
 					const auto old_mix = filter.overdub;
 
-					filter.od_filter[c].perform(sample_data.data(), INTERNALBLOCK, filter.filter_params,
-					                            filter_samples.data());
+					filter.od_filter[c].perform(residual.data(), INTERNALBLOCK, filter.filter_params,
+					                            filter_samples.data()); //Apply the filter to the residual
 
 					std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
 					               filter_output.begin(), [old_mix](auto a, auto b)
 					               {
 						               return a * old_mix + b;
-					               });
+					               }); //Add the filtered result with a mix to the filter output 
 
-					std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
-					               filter_output_unmixed.begin(), [](auto a, auto b)
+					std::transform(residual.begin(), residual.end(), filter_samples.begin(),
+					               residual.begin(), [](auto a, auto b)
 					               {
-						               return a + b;
+						               return a-b;
 					               });
 				}
 
 				//Mix in the old remainder according to overdub 
 				const auto old_mix = overdub;
 
-				std::transform(sample_data.begin(), sample_data.end(), filter_output_unmixed.begin(),
-				               sample_data.begin(), [old_mix](auto a, auto b)
+				std::transform(residual.begin(), residual.end(),
+				               sample_data.begin(), [old_mix](auto a)
 				               {
-					               return (a - b) * old_mix;
+					               return a * old_mix;
 				               });
 
-				std::fill(filter_output_unmixed.begin(), filter_output_unmixed.end(), 0);
-
+				std::copy_n(input_samps, INTERNALBLOCK, residual.begin());
 				//Perform filters on input samples 
 				for (auto& filter : filter_data_)
 				{
 					const auto new_mix = 1 - filter.overdub;
 
 					filter.sample_filter[c].
-						perform(input_samps, INTERNALBLOCK, filter.filter_params, filter_samples.data());
+						perform(residual.data(), INTERNALBLOCK, filter.filter_params, filter_samples.data());
 
 					std::transform(filter_samples.begin(), filter_samples.end(), filter_output.begin(),
 					               filter_output.begin(), [new_mix](auto a, auto b)
@@ -131,24 +130,24 @@ namespace Grainflow
 						               return a * new_mix + b;
 					               });
 
-					std::transform(filter_samples.begin(), filter_samples.end(), filter_output_unmixed.begin(),
-					               filter_output_unmixed.begin(), [](auto a, auto b)
+					std::transform(residual.begin(), residual.end(), filter_samples.begin(),
+					               residual.begin(), [](auto a, auto b)
 					               {
-						               return a + b;
+						               return  a-b;
 					               });
 				}
 
 				//Mix in the new remainder according to overdub 
 				const auto new_mix = 1 - overdub;
 
-				std::transform(input_samps, input_samps + INTERNALBLOCK, filter_output_unmixed.begin(),
-				               filter_output_unmixed.begin(), [new_mix](auto a, auto b)
+				std::transform(residual.begin(),residual.end(),
+				               residual.begin(), [new_mix](auto a)
 				               {
-					               return (a - b);
+					               return (a)* new_mix;
 				               });
 
 				//Mix everything together
-				std::transform(filter_output_unmixed.begin(), filter_output_unmixed.end(), sample_data.begin(),
+				std::transform(residual.begin(), residual.end(), sample_data.begin(),
 				               sample_data.begin(), [](auto a, auto b) { return a + b; });
 
 				std::transform(filter_output.begin(), filter_output.end(), sample_data.begin(),
@@ -157,7 +156,7 @@ namespace Grainflow
 				for (auto& s : sample_data){
 					peak = std::max(peak, std::abs(s));
 				}
-				auto gain = peak > 1.0 ? 1.0/peak : 1.0;
+				auto gain = peak > 1.0 ? 1.0/(peak+0.05) : 1.0;
 				gain = gf_utils::lerp(gain, last_gain_[c], 0.8);
 
 				auto one_over_block = 1.0f/INTERNALBLOCK;
