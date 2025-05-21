@@ -28,7 +28,6 @@ namespace Grainflow
 		gf_i_buffer_reader<T, SigType> buffer_reader_{};
 
 		std::vector<filter_data> filter_data_;
-		std::vector<SigType> last_gain_;
 		int _n_filters{0};
 
 	public:
@@ -154,18 +153,6 @@ namespace Grainflow
 
 				std::transform(filter_output.begin(), filter_output.end(), sample_data.begin(),
 				               sample_data.begin(), [](auto a, auto b) { return a + b; });
-				double peak = 0;
-				for (auto& s : sample_data){
-					peak = std::max(peak, std::abs(s));
-				}
-				auto gain = peak > 1.0 ? 1.0/(peak+0.05) : 1.0;
-				gain = gf_utils::lerp(gain, last_gain_[c], 0.8);
-
-				auto one_over_block = 1.0f/INTERNALBLOCK;
-				for (int i = 0; i < INTERNALBLOCK; ++i){
-					sample_data[i] *= gf_utils::lerp(last_gain_[c], gain, one_over_block*i);
-				}
-				last_gain_[c] = gain;
 
 				buffer_reader_.write_buffer(buffer, c, sample_data.data(), write_position_, INTERNALBLOCK);
 			}
@@ -190,8 +177,6 @@ namespace Grainflow
 			}
 			_n_filters = number;
 			filter_data_.resize(number);
-			last_gain_.resize(number);
-			std::fill(last_gain_.begin(), last_gain_.end(), 1);
 			set_n_filter_channels(channels_);
 		}
 
