@@ -1,5 +1,9 @@
+#pragma once
+#define _USE_MATH_DEFINES
+#include <math.h> 
 #include <array>
 #include "gfUtils.h"
+
 
 namespace Grainflow
 {
