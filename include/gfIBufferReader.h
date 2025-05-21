@@ -30,5 +30,6 @@ namespace Grainflow
 		                     const int start_position, const int size) = nullptr;
 		void (*read_buffer)(T* buffer, int channel, SigType* __restrict samples, int start_sample,
 		                    const int size) = nullptr;
+		void (*clear_buffer)(T* buffer) = nullptr;
 	};
 }

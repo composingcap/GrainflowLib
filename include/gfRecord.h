@@ -221,6 +221,15 @@ namespace Grainflow
 			});
 		}
 
+		void clear(T* buffer){
+
+			for (auto& filter : filter_data_){
+				filter.sample_filter.clear();
+				filter.od_filter.clear();
+			}
+			buffer_reader_.clear_buffer(buffer);
+		}
+
 		void get_position(SigType& position_samps, SigType& position_norm, SigType& position_ms)
 		{
 			position_samps = write_position_samps;
