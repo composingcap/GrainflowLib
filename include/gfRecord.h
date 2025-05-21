@@ -15,6 +15,8 @@ namespace Grainflow
 			std::vector<biquad<SigType>> sample_filter;
 			std::vector<biquad<SigType>> od_filter;
 			biquad_params<SigType> filter_params;
+			float freq{0};
+			float q{0};
 			float overdub;
 		};
 
@@ -206,8 +208,17 @@ namespace Grainflow
 		void set_filter_params(const int& idx, const float& freq, const float& q, const float& mix)
 		{
 			if (idx >= filter_data_.size()) return;
-			biquad_params<SigType>::bandpass(filter_data_[idx].filter_params, freq, q, samplerate);
+			filter_data_[idx].freq = freq;
+			filter_data_[idx].q = q;
 			filter_data_[idx].overdub = std::min(1.0f, std::max(0.0f, mix));
+			biquad_params<SigType>::bandpass(filter_data_[idx].filter_params, freq, q, samplerate);
+		}
+
+		void pre_process_filters(){
+			//Currently we just sort by decending q
+			std::sort(filter_data_.begin(), filter_data_.end(), [](auto& a, auto& b){
+				return a.q > b.q;
+			});
 		}
 
 		void get_position(SigType& position_samps, SigType& position_norm, SigType& position_ms)
