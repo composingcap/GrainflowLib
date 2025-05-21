@@ -56,7 +56,7 @@ namespace Grainflow
 				buffer_reader_.read_buffer(buffer, c, temp_[0].data(), write_position_, INTERNALBLOCK);
 				const auto old_mix = overdub;
 				const auto new_mix = 1 - overdub;
-				std::transform(samps, samps + (INTERNALBLOCK - 1), temp_[0].begin(), temp_[0].begin(),
+				std::transform(samps, samps + INTERNALBLOCK, temp_[0].begin(), temp_[0].begin(),
 				               [old_mix, new_mix](auto a, auto b)
 				               {
 					               return a * new_mix + b * old_mix;
