@@ -1,5 +1,6 @@
 #pragma once
 #include "gfIoConfig.h"
+#include "gfParam.h"
 
 namespace Grainflow
 {
