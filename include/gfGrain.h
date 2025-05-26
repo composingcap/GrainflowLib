@@ -115,7 +115,7 @@ namespace Grainflow
 			use_default_envelope = !buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
 
 
-			const float window_portion = 1 / std::clamp(1 - space.value, 0.0001f, 1.0f);
+			const float window_portion = 1 / std::max(std::min(1.0f - space.value, 0.0001f), 1.0f);
 			// Check grain clock to make sure it is moving
 			if (io_config.grain_clock[0] == io_config.grain_clock[1])
 				return;
@@ -322,7 +322,7 @@ namespace Grainflow
 					gf_param_name::delay);
 			source_sample = ((traversal[reset_position]) * buffer_info.buffer_frames - (delay.value * 0.001f *
 				buffer_samplerate) - 1);
-			source_sample = gf_utils::mod(source_sample, buffer_info.buffer_frames);
+			source_sample = gf_utils::mod<SigType>(source_sample, buffer_info.buffer_frames);
 			if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::rate_buffer),
 			                                       param_get_handle(gf_param_name::rate),
 			                                       g_))

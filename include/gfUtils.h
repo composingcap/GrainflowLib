@@ -45,10 +45,11 @@ namespace Grainflow
 		{
 			return pitch_to_rate(pitch_offset) - 1;
 		}
+		template<typename T = double>
+		static inline T mod(const T a, const T b = 1) { return a - b * floor(a / b); }
 
-		static inline double mod(const double a, const double b) { return a - b * floor(a / b); }
-
-		static inline double mod(const double num, const double min, const double max)
+		template<typename T = double>
+		static inline T mod(const T num, const T min, const T max)
 		{
 			return (mod(num - min, max - min) + min);
 		}

@@ -101,7 +101,7 @@ namespace Grainflow{
             return buffer_->data_->getSampleRate();
         }
 
-        SigType& lookup(int frame, int channel){
+        inline SigType& lookup(int frame, int channel){
             return buffer_->data_->samples[channel][frame];
         }
 
@@ -156,12 +156,28 @@ namespace Grainflow{
 		                          const SigType* positions, 
 		                          const int size, const float lower_bound, const float upper_bound)
 		{
-			buffer_lock<SigType> locked(buffer);
-            if (!locked.valid()){
+			buffer_lock<SigType> sample_lock(buffer);
+            if (!sample_lock.valid()){
                 return;
             }
-            std::vector<std::vector<SigType>>* sample_ptr;
-            locked.get_samples(sample_ptr);
+	
+			
+			const int max_frame = static_cast<int>(sample_lock.frame_count())-1;
+			const int lower_frame = max_frame * lower_bound;
+			const int upper_frame = max_frame * upper_bound;
+			if (upper_frame == lower_frame) return;
+			int channels = static_cast<int>(sample_lock.channel_count());
+			channels = std::max(channels, 1);
+			const auto chan = channel % channels;
+			for (int i = 0; i < size; i++)
+			{
+				const auto position = positions[i];
+				const auto first_frame = static_cast<int>(position);
+				const auto tween = position - first_frame;
+				const bool frame_overflow = first_frame >= upper_frame;
+				const int second_frame = (first_frame + 1) * !frame_overflow + lower_frame * frame_overflow;
+				samples[i] = sample_lock.lookup(first_frame, chan) * (1 - tween) + sample_lock.lookup(second_frame, chan)* tween;
+			}
 
 		}
 

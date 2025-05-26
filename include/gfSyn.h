@@ -63,10 +63,10 @@ namespace Grainflow {
 			}
 			else {
 				for (long j = 0; j < INTERNALBLOCK; ++j) {
-					result[j] = GfUtils::mod(base + rate * j) + offset;
+					result[j] = gf_utils::mod<T>(base + rate * j) + offset;
 				}
 			}
-			base = GfUtils::mod(base + rate * (INTERNALBLOCK));
+			base = gf_utils::mod<T>(base + rate * (INTERNALBLOCK));
 		}
 
 		template<typename T, long INTERNALBLOCK>
@@ -79,11 +79,11 @@ namespace Grainflow {
 			}
 			else {
 				for (long j = 0; j < INTERNALBLOCK; ++j) {
-					auto pos = GfUtils::mod(base + rate * j);
+					auto pos = gf_utils::mod(base + rate * j);
 					result[j] = (int)(pos * size);
 				}
 			}
-			base = GfUtils::mod(base + rate * (INTERNALBLOCK));
+			base = gf_utils::mod(base + rate * (INTERNALBLOCK));
 		}
 
 		template<typename T, long INTERNALBLOCK>
@@ -110,7 +110,7 @@ namespace Grainflow {
 				int p2 = p1 + 1;
 				float a = positions[i] - p1;
 
-				result[i] = GfUtils::Lerp(table[p1], table[p2], a);
+				result[i] = gf_utils::Lerp(table[p1], table[p2], a);
 			}
 		}
 
@@ -164,5 +164,32 @@ namespace Grainflow {
 			}
 		}
 	};
+
+	template<typename T, long INTERNALBLOCK>
+	class phasor{
+		private:
+		T history_;	
+		T rate_;
+		public:
+
+		phasor(T rate, int samplerate){
+			set_rate(rate, samplerate);
+		}
+		
+
+		inline void set_rate(T rate, int samplerate){
+			rate_ = rate/samplerate;
+		}
+
+		inline void set_rate(T rate, int samplerate, int file_samples, int file_samplerate){
+			rate_ = rate*file_samplerate/(file_samples*samplerate);
+		}
+
+		void perform(T* buffer){
+			GfSyn::PhasorWave<T, INTERNALBLOCK>(buffer, rate_, history_);
+		}
+	};
+
+
 
 }
