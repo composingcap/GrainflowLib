@@ -50,10 +50,10 @@ namespace Grainflow
 				position = std::clamp(gf_utils::deviate(pan_center, pan_spread * 0.5f), 0.0f, 1.0f);
 			}
 			const sigtype n_outputs = output_channels;
-			position = static_cast<float>(std::max(
-				gf_utils::mod(position + n_outputs * 5, n_outputs),
+			position = static_cast<float>(std::max<float>(
+				gf_utils::mod<float>(position + n_outputs * 5, n_outputs),
 				0.0));
-			position = gf_utils::mod(static_cast<float>(gf_utils::round(position, quantization)), output_channels);
+			position = gf_utils::mod<float>(static_cast<float>(gf_utils::round(position, quantization)), output_channels);
 
 			for (int i = 0; i < block_size; i++)
 			{

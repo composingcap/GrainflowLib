@@ -29,7 +29,10 @@ namespace Grainflow
 		loop_mode,
 		channel,
 		density,
-
+		#ifdef INTERNAL_VIBRATO
+		vibrato_rate,
+		vibrato_depth,
+		#endif
 		//These do not have param structs
 		transpose,
 		glisson_st,

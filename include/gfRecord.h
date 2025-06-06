@@ -276,7 +276,7 @@ namespace Grainflow
 
 			if (sync)
 			{
-				write_position_ = buffer_info_.buffer_frames * (gf_utils::mod(time_override, 1));
+				write_position_ = buffer_info_.buffer_frames * (gf_utils::mod<SigType>(time_override, 1));
 			}
 			if (buffer_info_.buffer_frames == 0) return;
 			int sampleRange = buffer_info_.buffer_frames * recRangeSize;
