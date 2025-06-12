@@ -42,7 +42,7 @@ namespace Grainflow
 		size_t samplerate = 48000;
 
 	private:
-		void write_simple(SigType** input, T* buffer, int block, int channels)
+		void write_simple(SigType** __restrict input, T* __restrict buffer, const int block, const int channels)
 		{
 			for (int c = 0; c < channels; ++c)
 			{
@@ -50,7 +50,7 @@ namespace Grainflow
 				if (overdub <= 0)
 				{
 					buffer_reader_.write_buffer(buffer, c, samps, write_position_, INTERNALBLOCK);
-					return;
+					continue;
 				}
 
 				buffer_reader_.read_buffer(buffer, c, temp_[0].data(), write_position_, INTERNALBLOCK);
@@ -65,7 +65,7 @@ namespace Grainflow
 			}
 		}
 
-		void write_with_filters(SigType** input, T* buffer, int block, int channels)
+		void write_with_filters(SigType** __restrict input, T* __restrict buffer, const int block, const int channels)
 		{
 			for (int c = 0; c < channels; ++c)
 			{
@@ -83,10 +83,11 @@ namespace Grainflow
 				{
 					return;
 				}
-				std::fill(filter_output.begin(), filter_output.end() , 0); //Clear filter output accumulator
+				std::fill(filter_output.begin(), filter_output.end(), 0); //Clear filter output accumulator
 
 				//Perform filters on samples in buffer
-				std::copy(sample_data.begin(), sample_data.end(), residual.begin()); //Copy buffer results into the residual array
+				std::copy(sample_data.begin(), sample_data.end(), residual.begin());
+				//Copy buffer results into the residual array
 				for (auto& filter : filter_data_)
 				{
 					const auto old_mix = filter.overdub;
@@ -103,7 +104,7 @@ namespace Grainflow
 					std::transform(residual.begin(), residual.end(), filter_samples.begin(),
 					               residual.begin(), [](auto a, auto b)
 					               {
-						               return a-b;
+						               return a - b;
 					               });
 				}
 
@@ -134,17 +135,17 @@ namespace Grainflow
 					std::transform(residual.begin(), residual.end(), filter_samples.begin(),
 					               residual.begin(), [](auto a, auto b)
 					               {
-						               return  a-b;
+						               return a - b;
 					               });
 				}
 
 				//Mix in the new remainder according to overdub 
 				const auto new_mix = 1 - overdub;
 
-				std::transform(residual.begin(),residual.end(),
+				std::transform(residual.begin(), residual.end(),
 				               residual.begin(), [new_mix](auto a)
 				               {
-					               return (a)* new_mix;
+					               return (a) * new_mix;
 				               });
 
 				//Mix everything together
@@ -171,7 +172,8 @@ namespace Grainflow
 
 		void set_n_filters(const int number)
 		{
-			if (number < 1){
+			if (number < 1)
+			{
 				_n_filters = 0;
 				return;
 			}
@@ -199,16 +201,19 @@ namespace Grainflow
 			biquad_params<SigType>::bandpass(filter_data_[idx].filter_params, freq, q, samplerate);
 		}
 
-		void pre_process_filters(){
+		void pre_process_filters()
+		{
 			//Currently we just sort by decending q
-			std::sort(filter_data_.begin(), filter_data_.end(), [](auto& a, auto& b){
+			std::sort(filter_data_.begin(), filter_data_.end(), [](auto& a, auto& b)
+			{
 				return a.q > b.q;
 			});
 		}
 
-		void clear(T* buffer){
-
-			for (auto& filter : filter_data_){
+		void clear(T* buffer)
+		{
+			for (auto& filter : filter_data_)
+			{
 				filter.sample_filter.clear();
 				filter.od_filter.clear();
 			}
