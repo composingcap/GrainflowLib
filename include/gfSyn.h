@@ -184,13 +184,13 @@ namespace Grainflow
 				0.0066208798, // x^3
 				-0.00017350505, // x^5
 				0.0000025222919, // x^7
-				-0.000000023317787, // x^9
-				0.00000000013291342, // x^11
+				//-0.000000023317787, // x^9
+				//0.00000000013291342, // x^11
 			};
+			const T PI_MINOR = -0.00000008742278;
 
 			for (int i = 0; i < INTERNALBLOCK; ++i)
 			{
-				const T PI_MINOR = -0.00000008742278;
 				auto x = (positions[i]) * TWOPI;
 				auto x2 = x * x;
 				//auto p11 = coefs[5];

@@ -45,10 +45,15 @@ namespace Grainflow
 		{
 			return pitch_to_rate(pitch_offset) - 1;
 		}
-		template<typename T = double>
-		static inline T mod(const T a, const T b = 1) { return a - b * floor(a / b); }
 
-		template<typename T = double>
+		template <typename T = double>
+		static inline T mod(const T a, const T b = 1)
+		{
+			const auto res = a - b * floor(a / b);
+			return std::max<T>(0.0, std::min<T>(res, b));
+		}
+
+		template <typename T = double>
 		static inline T mod(const T num, const T min, const T max)
 		{
 			return (mod(num - min, max - min) + min);
@@ -118,7 +123,6 @@ namespace Grainflow
 			return block_size;
 		}
 	};
-
 
 
 	enum class GF_RETURN_CODE

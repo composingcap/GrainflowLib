@@ -167,12 +167,6 @@ namespace Grainflow
 		if (param_type == gf_param_type::mode) return; //Modes are not a value type and should not be effected 
 		switch (param_name)
 		{
-#ifdef INTERNAL_VIBRATO
-		case gf_param_name::vibrato_depth:
-			value = gf_utils::pitch_to_rate(value);
-			break;
-#endif
-
 		case gf_param_name::transpose:
 			if (param_type == gf_param_type::base) value = gf_utils::pitch_to_rate(value);
 			else value = gf_utils::pitch_offset_to_rate_offset(value);

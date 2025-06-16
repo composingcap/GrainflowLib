@@ -29,10 +29,8 @@ namespace Grainflow
 		loop_mode,
 		channel,
 		density,
-		#ifdef INTERNAL_VIBRATO
 		vibrato_rate,
 		vibrato_depth,
-		#endif
 		//These do not have param structs
 		transpose,
 		glisson_st,
@@ -204,11 +202,12 @@ namespace Grainflow
 		else if (param == "loopMode") { out_param_name = gf_param_name::loop_mode; }
 		else if (param == "channel") { out_param_name = gf_param_name::channel; }
 		else if (param == "density") { out_param_name = gf_param_name::density; }
+		else if (param == "vibratoDepth") { out_param_name = gf_param_name::vibrato_depth; }
+		else if (param == "vibratoRate") { out_param_name = gf_param_name::vibrato_rate; }
 		//These cases are converted internally to other parameters 
 		else if (param == "transpose") { out_param_name = gf_param_name::transpose; }
 		else if (param == "glissonSt") { out_param_name = gf_param_name::glisson_st; }
 		else if (param == "stream") { out_param_name = gf_param_name::stream; }
-
 		else if (param == "nEnvelopes")
 		{
 			out_param_name = gf_param_name::n_envelopes;

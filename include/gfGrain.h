@@ -34,19 +34,19 @@ namespace Grainflow
 		bool grain_enabled_ = true;
 		bool buffer_defined_ = false;
 		gf_value_table value_table_[2];
-		SigType sample_id_temp_[Blocksize];
+		double sample_id_temp_[Blocksize];
 		float density_temp_[Blocksize];
 		float amp_temp_[Blocksize];
-		SigType temp_double_[Blocksize];
-		SigType glisson_temp_[Blocksize];
+		double temp_double_[Blocksize];
+		double glisson_temp_[Blocksize];
+		std::unique_ptr<Grainflow::phasor<SigType, Blocksize>> vibrato_phasor_;
 		bool reset_pending_;
 		std::random_device rd_;
 		int g_ = 0;
 		bool enabled_internal_ = false;
 		bool window_changed_;
-		#ifdef INTERNAL_VIBRATO
-		std::unique_ptr< Grainflow::phasor<SigType, Blocksize> > vibrato_phasor_;
-		#endif
+		
+
 
 	public:
 		int buffer_samplerate = 48000;
@@ -75,10 +75,8 @@ namespace Grainflow
 		gf_param stop_point;
 		gf_param channel;
 		gf_param density;
-		#ifdef INTERNAL_VIBRATO
 		gf_param vibrato_rate;
 		gf_param vibrato_depth;
-		#endif 
 
 		/// Links to buffers - this can likely use a template argument and would be better
 		T* buffer_ref = nullptr;
@@ -94,9 +92,8 @@ namespace Grainflow
 		gf_grain(): value_table_{}, sample_id_temp_{}, density_temp_{}, amp_temp_{}, temp_double_{}, glisson_temp_{},
 		            reset_pending_(false)
 		{
-			#ifdef INTERNAL_VIBRATO
-			vibrato_phasor_ = std::make_unique<phasor<SigType, Blocksize>>(0,system_samplerate);
-			#endif
+			vibrato_phasor_ = std::make_unique<phasor<SigType, Blocksize>>(0, system_samplerate);
+
 			rate.base = 1;
 			amplitude.base = 1;
 			direction.base = 1;
@@ -106,6 +103,11 @@ namespace Grainflow
 			n_envelopes.value = 1;
 			glisson_rows.value = 1;
 			density.base = 1;
+			std::fill_n(sample_id_temp_, Blocksize, 0);
+			std::fill_n(density_temp_, Blocksize, 0);
+			std::fill_n(amp_temp_, Blocksize, 0);
+			std::fill_n(temp_double_, Blocksize, 0);
+			std::fill_n(glisson_temp_, Blocksize, 0);
 		}
 
 		~gf_grain()
@@ -166,13 +168,16 @@ namespace Grainflow
 					std::fill_n(grain_progress, Blocksize, 0.0);
 					continue;
 				}
-				increment(fm, grain_progress, sample_id_temp_, temp_double_, glisson_temp_,system_samplerate, Blocksize);
+				increment(fm, grain_progress, sample_id_temp_, temp_double_, glisson_temp_, system_samplerate,
+				          Blocksize);
 				buffer_reader.sample_envelope(envelope_ref, use_default_envelope, n_envelopes.value, envelope.value,
 				                              grain_envelope, grain_progress, Blocksize);
 				if (sample_id_temp_[0] != sample_id_temp_[0]) continue; //Nan check
 				if (buffer_valid)
+				{
 					buffer_reader.sample_buffer(buffer_ref, channel.value, grain_output, sample_id_temp_,
 					                            Blocksize, start_point.value, stop_point.value);
+				}
 				expand_value_table(valueFrames, grain_state, amp_temp_, density_temp_, Blocksize);
 				output_block(sample_id_temp_, amp_temp_, density_temp_, buffer_info.one_over_buffer_frames, stream,
 				             input_amp, grain_playhead, grain_amp, grain_envelope, grain_output, grain_streams,
@@ -221,12 +226,11 @@ namespace Grainflow
 				return &glisson_position;
 			case (gf_param_name::density):
 				return &density;
-			#ifdef INTERNAL_VIBRATO
 			case (gf_param_name::vibrato_rate):
 				return &vibrato_rate;
 			case (gf_param_name::vibrato_depth):
 				return &vibrato_depth;
-			#endif
+
 			default:
 				return nullptr;
 			}
@@ -363,10 +367,8 @@ namespace Grainflow
 			sample_param(&start_point);
 			sample_param(&stop_point);
 			sample_param(&glisson_position);
-			#ifdef INTERNAL_VIBRATO
 			sample_param(&vibrato_rate);
 			sample_param(&vibrato_depth);
-			#endif
 			sample_normalized(&channel, buffer_info.n_channels);
 			sample_density();
 			sample_direction();
@@ -493,36 +495,32 @@ namespace Grainflow
 		                      SigType* __restrict glisson_temp, const int samplerate, const int size)
 		{
 			const int fold = loop_mode.base > 1.1f ? 1 : 0;
-			const SigType start_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * start_point.value,
-			                                   static_cast<SigType>(buffer_info.buffer_frames));
-			const SigType end_tmp = std::min(static_cast<SigType>(buffer_info.buffer_frames) * stop_point.value,
-			                                 static_cast<SigType>(buffer_info.buffer_frames));
+			const double start_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * start_point.value,
+			                                  static_cast<double>(buffer_info.buffer_frames));
+			const double end_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * stop_point.value,
+			                                static_cast<double>(buffer_info.buffer_frames));
 			if (start_tmp == end_tmp) return;
-			const SigType start = std::min(start_tmp, end_tmp);
+			const double start = std::min(start_tmp, end_tmp);
 			//Need to check the order in case a user feeds us these out of order
-			const SigType end = std::max(start_tmp, end_tmp);
+			const double end = std::max(start_tmp, end_tmp);
 
-			#ifdef INTERNAL_VIBRATO
-			if (vibrato_rate.value * vibrato_depth.value != 0){
-				vibrato_phasor_->set_rate(vibrato_rate.value,samplerate);
+			if (vibrato_rate.value > 0.0f && vibrato_depth.value > 0.0f)
+			{
+				vibrato_phasor_->set_rate(vibrato_rate.value, samplerate);
 				vibrato_phasor_->perform(glisson_temp);
 				GfSyn::ChevyshevSin<SigType, Blocksize>(sample_delta_temp, glisson_temp);
 				auto depth = vibrato_depth.value;
-				std::transform(sample_delta_temp, sample_delta_temp+Blocksize,fm,sample_delta_temp, [depth](auto a, auto fm){return (1+a*depth)*gf_utils::pitch_to_rate(fm);} );
-				
+				std::transform(sample_delta_temp, sample_delta_temp + Blocksize, fm, sample_delta_temp,
+				               [depth](auto a, auto fm) { return gf_utils::pitch_to_rate(fm + a * depth * 0.5f); });
 			}
-			else{
-			for (int i = 0; i < size; i++)
+			else
 			{
-				sample_delta_temp[i] = gf_utils::pitch_to_rate(fm[i]);
+				for (int i = 0; i < size; i++)
+				{
+					sample_delta_temp[i] = gf_utils::pitch_to_rate(fm[i]);
+				}
 			}
-		}
-		#else
-			for (int i = 0; i < size; i++)
-			{
-				sample_delta_temp[i] = gf_utils::pitch_to_rate(fm[i]);
-			}
-		#endif
+
 			if (glisson.mode == gf_buffer_mode::normal && glisson_rows.value >= 1)
 			{
 				for (int i = 0; i < size; i++)
