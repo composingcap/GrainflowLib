@@ -1,6 +1,14 @@
+#pragma once 
 #include "gfUtils.h"
 #include "gfEnvelopes.h"
 #include <vector>
+#ifndef M_PI
+	#define _USE_MATH_DEFINES
+	#include <cmath>
+#endif 
+
+constexpr double PI = M_PI;
+constexpr  double TWOPI = M_PI * 2;
 
 namespace Grainflow
 {

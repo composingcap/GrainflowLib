@@ -34,11 +34,11 @@ namespace Grainflow
 		bool grain_enabled_ = true;
 		bool buffer_defined_ = false;
 		gf_value_table value_table_[2];
-		double sample_id_temp_[Blocksize];
+		SigType sample_id_temp_[Blocksize];
 		float density_temp_[Blocksize];
 		float amp_temp_[Blocksize];
-		double temp_double_[Blocksize];
-		double glisson_temp_[Blocksize];
+		SigType temp_sigtype_[Blocksize];
+		SigType glisson_temp_[Blocksize];
 		std::unique_ptr<Grainflow::phasor<SigType, Blocksize>> vibrato_phasor_;
 		bool reset_pending_;
 		std::random_device rd_;
@@ -89,7 +89,7 @@ namespace Grainflow
 		gf_i_buffer_reader<T, SigType> buffer_reader;
 		gf_buffer_info buffer_info;
 
-		gf_grain(): value_table_{}, sample_id_temp_{}, density_temp_{}, amp_temp_{}, temp_double_{}, glisson_temp_{},
+		gf_grain(): value_table_{}, sample_id_temp_{}, density_temp_{}, amp_temp_{}, temp_sigtype_{}, glisson_temp_{},
 		            reset_pending_(false)
 		{
 			vibrato_phasor_ = std::make_unique<phasor<SigType, Blocksize>>(0, system_samplerate);
@@ -106,7 +106,7 @@ namespace Grainflow
 			std::fill_n(sample_id_temp_, Blocksize, 0);
 			std::fill_n(density_temp_, Blocksize, 0);
 			std::fill_n(amp_temp_, Blocksize, 0);
-			std::fill_n(temp_double_, Blocksize, 0);
+			std::fill_n(temp_sigtype_, Blocksize, 0);
 			std::fill_n(glisson_temp_, Blocksize, 0);
 		}
 
@@ -168,7 +168,7 @@ namespace Grainflow
 					std::fill_n(grain_progress, Blocksize, 0.0);
 					continue;
 				}
-				increment(fm, grain_progress, sample_id_temp_, temp_double_, glisson_temp_, system_samplerate,
+				increment(fm, grain_progress, sample_id_temp_, temp_sigtype_, glisson_temp_, system_samplerate,
 				          Blocksize);
 				buffer_reader.sample_envelope(envelope_ref, use_default_envelope, n_envelopes.value, envelope.value,
 				                              grain_envelope, grain_progress, Blocksize);

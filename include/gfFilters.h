@@ -1,8 +1,12 @@
 #pragma once
-#define _USE_MATH_DEFINES
-#include <math.h> 
 #include <array>
 #include "gfUtils.h"
+
+#ifndef M_PI
+	#define _USE_MATH_DEFINES
+	#include <cmath>
+#endif 
+
 
 
 namespace Grainflow
