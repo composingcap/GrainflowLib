@@ -129,7 +129,7 @@ namespace Grainflow
 			use_default_envelope = !buffer_reader.update_buffer_info(envelope_ref, io_config, nullptr);
 
 
-			const float window_portion = 1 / std::max(std::min(1.0f - space.value, 0.0001f), 1.0f);
+			const float window_portion = 1 / std::min(std::max(1.0f - space.value, 0.0001f), 1.0f);
 			// Check grain clock to make sure it is moving
 			if (io_config.grain_clock[0] == io_config.grain_clock[1])
 				return;
