@@ -3,6 +3,7 @@
 #include <random>
 #include <algorithm>
 #include <numeric>
+#include <atomic>
 #include "gfParam.h"
 #include "gfUtils.h"
 #include "gfIBufferReader.h"
@@ -26,6 +27,7 @@ namespace Grainflow
 	template <typename T, size_t Blocksize, typename SigType = double>
 	class gf_grain
 	{
+	static_assert(std::atomic<bool>::is_always_lock_free, "Atomic<bool> must be lock free");
 	private:
 		static constexpr SigType Grainclock_Thresh = 1e-7;
 		bool reset_ = false;
@@ -45,7 +47,7 @@ namespace Grainflow
 		int g_ = 0;
 		bool enabled_internal_ = false;
 		bool window_changed_;
-		
+		std::atomic<bool> param_update_busy_;
 
 
 	public:
@@ -103,6 +105,7 @@ namespace Grainflow
 			n_envelopes.value = 1;
 			glisson_rows.value = 1;
 			density.base = 1;
+			param_update_busy_.store(false);
 			std::fill_n(sample_id_temp_, Blocksize, 0);
 			std::fill_n(density_temp_, Blocksize, 0);
 			std::fill_n(amp_temp_, Blocksize, 0);
@@ -243,6 +246,7 @@ namespace Grainflow
 
 		void param_set(const float value, const gf_param_name param, const gf_param_type type)
 		{
+			param_update_busy_.store(true);
 			gf_param* selected_param = param_get_handle(param);
 
 			switch (type)
@@ -264,10 +268,12 @@ namespace Grainflow
 				break;
 			default:
 				throw("invalid type");
-				return;
+				break;
 			}
-		}
+			param_update_busy_.store(false);
 
+		}
+		
 		float param_get(const gf_param_name param_name, const gf_param_type param_type)
 		{
 			const auto param = param_get_handle(param_name);
@@ -317,7 +323,6 @@ namespace Grainflow
 				value_table_[i].density = grain_enabled_ && !window_changed_;
 			}
 
-			//TODO the performance of this statement can be improved 
 			bool grain_reset = (last_grain_clock_ > grain_clock[0] && grain_clock[0] >= Grainclock_Thresh) || (
 				last_grain_clock_ < Grainclock_Thresh && grain_clock[0] > Grainclock_Thresh);
 			grain_state[0] = !grain_reset && grain_clock[0] >= Grainclock_Thresh;
@@ -360,6 +365,10 @@ namespace Grainflow
 						gf_param_name::window);
 			}
 			window_changed_ = std::abs(window.value - last_window) > 0.00000001;
+			if (param_update_busy_.load()){
+				//If the parameter is being written to, we will just wait for the next crossing
+				return value_table_;
+			}
 			sample_param(&space);
 			sample_param(&glisson);
 			sample_param(&envelope);
