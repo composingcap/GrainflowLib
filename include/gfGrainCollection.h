@@ -258,7 +258,8 @@ namespace Grainflow
 	{
 		for (int g = 0; g < grain_count_; g++)
 		{
-			if (static_cast<int>(grains_[g].channel.value) != channel) continue;
+			const int grain_chanel = grains_[g].param_get(gf_param_name::channel);
+			if (grain_chanel != channel) continue;
 			param_set(g + 1, param_name, param_type, value);
 		}
 	}
@@ -374,7 +375,7 @@ namespace Grainflow
 		if (stream > nstreams_ || stream < 0) return GF_RETURN_CODE::GF_ERR;
 		for (int g = 0; g < grain_count_; g++)
 		{
-			if (grains_[g].stream != (stream - 1) || stream == 0) continue;
+			if (grains_[g].stream() != (stream - 1) || stream == 0) continue;
 			param_set(g + 1, param_name, param_type, value);
 		}
 		return GF_RETURN_CODE::GF_SUCCESS;
@@ -458,7 +459,7 @@ namespace Grainflow
 	template <typename T, size_t Internalblock, typename SigType>
 	int gf_grain_collection<T, Internalblock, SigType>::chanel_get(int index)
 	{
-		return grains_[index].channel.base;
+		return grains_[index].channel();
 	}
 
 	template <typename T, size_t Internalblock, typename SigType>
@@ -466,14 +467,14 @@ namespace Grainflow
 	{
 		for (int g = 0; g < grain_count_; g++)
 		{
-			grains_[g].channel.base = static_cast<float>(g % channels);
+			grains_[g].param_set(static_cast<float>(g % channels), gf_param_name::channel, gf_param_type::base);
 		}
 	}
 
 	template <typename T, size_t Internalblock, typename SigType>
 	void gf_grain_collection<T, Internalblock, SigType>::channel_set(int index, const int channel)
 	{
-		grains_[index].channel.base = static_cast<float>(channel);
+		grains_[index].param_set(static_cast<float>(channel), gf_param_name::channel, gf_param_type::base);
 	}
 
 	template <typename T, size_t Internalblock, typename SigType>
@@ -481,7 +482,7 @@ namespace Grainflow
 	{
 		for (int g = 0; g < grain_count_; g++)
 		{
-			grains_[g].channel.random = static_cast<float>(mode);
+			grains_[g].param_set(static_cast<float>(mode), gf_param_name::channel, gf_param_type::random);
 		}
 	}
 }
