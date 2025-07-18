@@ -14,7 +14,7 @@ namespace Grainflow{
 
         private:
         void resize(int frames, int channels, int samplerate = 0){
-            data_->setAudioBufferSize(channels, samples);
+            data_->setAudioBufferSize(channels, frames);
             data_->setSampleRate(samplerate);
         }
 
@@ -30,11 +30,11 @@ namespace Grainflow{
 
         public:
 		gf_buffer(){
-			data_ = std::make_unique<AudioFile>();
+			data_ = std::make_unique<AudioFile<SigType>>();
 		}
         gf_buffer(int frames, int channels, int samplerate){
-            data_ = std::make_unique<AudioFile>();
-            data_->setAudioBufferSize(channels, samples);
+            data_ = std::make_unique<AudioFile<SigType>>();
+            data_->setAudioBufferSize(channels, frames);
             data_->setSampleRate(samplerate);
         }
         gf_buffer(std::string& file_path){
