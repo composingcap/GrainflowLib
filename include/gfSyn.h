@@ -240,9 +240,9 @@ namespace Grainflow
 			rate_ = rate * file_samplerate / (file_samples * samplerate);
 		}
 
-		void perform(T* buffer)
+		void perform(T* buffer, size_t size = INTERNALBLOCK)
 		{
-			GfSyn::PhasorWave<T, INTERNALBLOCK>(buffer, rate_, history_);
+			GfSyn::PhasorWave<T, INTERNALBLOCK>(buffer, rate_, history_, size);
 		}
 	};
 }
