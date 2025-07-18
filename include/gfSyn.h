@@ -220,8 +220,8 @@ namespace Grainflow
 	class phasor
 	{
 	private:
-		T history_;
-		T rate_;
+		T history_{0};
+		T rate_{1};
 
 	public:
 		phasor(T rate, int samplerate)
@@ -240,9 +240,13 @@ namespace Grainflow
 			rate_ = rate * file_samplerate / (file_samples * samplerate);
 		}
 
-		void perform(T* buffer, size_t size = INTERNALBLOCK)
+		void perform(T* buffer, const int frames = INTERNALBLOCK)
 		{
-			GfSyn::PhasorWave<T, INTERNALBLOCK>(buffer, rate_, history_, size);
+			const int tiles = frames/INTERNALBLOCK;
+			for (int i = 0; i < tiles; ++i){
+				auto *pin = buffer+(i*INTERNALBLOCK);
+				GfSyn::PhasorWave<T, INTERNALBLOCK>(pin, rate_, history_);
+			}
 		}
 	};
 }

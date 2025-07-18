@@ -1,10 +1,11 @@
 #pragma once
-#include <mutex>
 #include <vector>
 #include <random>
 #include <algorithm>
 #include <atomic>
-#include<numeric>
+#include <numeric>
+#include <thread>
+#include<chrono>
 #include "gfEnvelopes.h"
 #include "gfUtils.h"
 
@@ -26,7 +27,7 @@ namespace Grainflow
 		float positions_[InternalBlock] = {0};
 		std::vector<sigtype> last_samples_ = {0};
 		std::vector<float> last_position_ = {0};
-		std::mutex lock_;
+		std::atomic<bool> latch_{false};
 
 
 		static void determine_pan_position(const int idx, const size_t block_size, const int channels,
@@ -94,7 +95,10 @@ namespace Grainflow
 
 		void set_channels(const int channels, const int output_channels = 2)
 		{
-			lock_.lock();
+			while (latch_.load()){
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			}
+			latch_.store(true);
 			channels_ = channels;
 			output_channels_ = output_channels;
 			if (channels != last_samples_.size())
@@ -104,7 +108,7 @@ namespace Grainflow
 				last_position_.resize(channels);
 				std::fill(last_position_.begin(), last_position_.end(), 0);
 			}
-			lock_.unlock();
+			latch_.store(false);
 		}
 
 
@@ -123,13 +127,17 @@ namespace Grainflow
 		void process(sigtype** __restrict grains, sigtype** __restrict grain_states, sigtype** __restrict output_stream,
 		             const int block_size)
 		{
+
 			const auto position = pan_position.load();
 			const auto spread = pan_spread.load();
 			const auto quantization = pan_quantization.load();
 			const auto blocks = block_size / InternalBlock;
 			const auto output_chans = output_channels_.load();
 			if (output_chans < 1) return;
-
+			if (latch_.load()){
+				return;
+			}
+			latch_.store(true);
 			for (int ch = 0; ch < channels_; ++ch)
 			{
 				for (int i = 0; i < blocks; ++i)
@@ -152,8 +160,11 @@ namespace Grainflow
 					                       last_position_, ch, output_chans, positions_);
 					perform_pan(input, positions_, InternalBlock, output_stream,
 					            this_block, output_chans);
+								
 				}
 			}
+			latch_.store(false);
+
 		}
 	};
 }
