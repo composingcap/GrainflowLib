@@ -13,10 +13,7 @@ namespace Grainflow{
         std::unique_ptr<AudioFile<SigType>> data_;
 
         private:
-        void resize(int frames, int channels, int samplerate = 0){
-            data_->setAudioBufferSize(channels, frames);
-            data_->setSampleRate(samplerate);
-        }
+
 
         void clear(){
             for (auto& c : data_->samples){
@@ -40,6 +37,10 @@ namespace Grainflow{
         gf_buffer(std::string& file_path){
             data_ = std::make_unique<AudioFile<SigType>>();
 			data_->load(file_path);
+        }
+		void resize(int frames, int channels, int samplerate = 0){
+            data_->setAudioBufferSize(channels, frames);
+            data_->setSampleRate(samplerate);
         }
 
     };
@@ -69,8 +70,8 @@ namespace Grainflow{
             buffer_->clear();
         }
 
-        void get_samples(std::vector<std::vector<SigType>>* samples){
-            samples = &(buffer_->data_->samples);
+        std::vector<std::vector<SigType>>& get_samples(){
+             return buffer_->data_->samples;
         }
 
         void get_info(gf_buffer_info* info){
@@ -85,9 +86,10 @@ namespace Grainflow{
             buffer_->replace(audio_file_path);
         }
 
-        void resize(int frames, int channels){
-            buffer_->resize(frames, channels);
+        void resize(int frames, int channels, int samplerate = 0){
+            buffer_->resize(frames, channels, samplerate);
         }
+
 
         int frame_count(){
             return buffer_->data_->getNumSamplesPerChannel();
@@ -188,8 +190,7 @@ namespace Grainflow{
             if (!sample_lock.valid()){
                 return;
             }
-            std::vector<std::vector<SigType>>* buffer_samples;
-            sample_lock.get_samples(buffer_samples);
+            auto& buffer_samples = sample_lock.get_samples();
 
             const int frames = static_cast<int>(sample_lock.frame_count());
 			int channels = static_cast<int>(sample_lock.channel_count());
@@ -201,14 +202,14 @@ namespace Grainflow{
 			{
 				for (int i = 0; i < size; i++)
 				{
-					samples[i] = (*buffer_samples)[channel][(start_sample + i)];
+					samples[i] = buffer_samples[channel][(start_sample + i)];
 				}
 			}
 			else
 			{
 				for (int i = 0; i < size; i++)
 				{
-					samples[i] = (*buffer_samples)[channel][(((start_sample + i) % frames))];
+					samples[i] = buffer_samples[channel][(((start_sample + i) % frames))];
 				}
 			}
 			
@@ -221,12 +222,11 @@ namespace Grainflow{
             if (!sample_lock.valid()){
                 return;
             }
-            std::vector<std::vector<SigType>>* buffer_samples;
-            sample_lock.get_samples(buffer_samples);
 
+            auto& buffer_samples = sample_lock.get_samples();
             const int frames = static_cast<int>(sample_lock.frame_count());
 			int channels = static_cast<int>(sample_lock.channel_count());
-			if (channels <= 0) return;
+			if (channels <= 0 || frames <= 0) return;
 			auto write_channel = channel % channels;
 			auto is_segmented = (start_position + size) >= frames;
 
@@ -234,14 +234,14 @@ namespace Grainflow{
 			{
 				for (int i = 0; i < size; i++)
 				{
-					(*buffer_samples)[channel][(start_position + i)] = samples[i];
+					buffer_samples[channel][(start_position + i)] = samples[i];
 				}
 				return;
 			}
 			auto first_chunk = (start_position + size) - frames;
 			for (int i = 0; i < size; i++)
 			{
-				(*buffer_samples)[channel][(((start_position + i) % frames))] = samples[i];
+				buffer_samples[channel][(((start_position + i) % frames))] = samples[i];
 			}            
 		}
 
@@ -265,8 +265,7 @@ namespace Grainflow{
             if (!sample_lock.valid()){
                 return;
             }
-            std::vector<std::vector<SigType>>* buffer_samples;
-            sample_lock.get_samples(buffer_samples);
+            auto& buffer_samples = sample_lock.get_samples();
 			int frames = sample_lock.frame_count();
 
             if (n_envelopes <= 1)
@@ -275,7 +274,7 @@ namespace Grainflow{
 				{
 					if (!sample_lock.valid()) return;
 					const auto frame = static_cast<int>(grain_clock[i] * frames);
-					samples[i] = (*buffer_samples)[0][frame];
+					samples[i] = buffer_samples[0][frame];
 				}
 				return;
 			}
@@ -287,7 +286,7 @@ namespace Grainflow{
 				const int env2 = env1 + 1;
 				const float fade = env2d_pos * static_cast<float>(n_envelopes) - static_cast<float>(env1);
 				const auto frame = static_cast<int>((grain_clock[i] * size_per_envelope));
-				samples[i] = (*buffer_samples)[0][(env1 * size_per_envelope + frame) % frames] * (1 - fade) + (*buffer_samples)[0][(
+				samples[i] = buffer_samples[0][(env1 * size_per_envelope + frame) % frames] * (1 - fade) + buffer_samples[0][(
 					env2 *
 					size_per_envelope + frame) % frames] * fade;
 			}
