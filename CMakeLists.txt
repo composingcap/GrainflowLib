@@ -13,7 +13,8 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "Disable AudioFile examples" FORCE)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/AudioFile)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/AudioFile)
 
-
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/Spatial_Audio_Framework)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/Spatial_Audio_Framework)
 
 file(GLOB_RECURSE GRAINFLOW_HEADERS
 	 RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
