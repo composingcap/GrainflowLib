@@ -31,6 +31,7 @@ namespace Grainflow
 		density,
 		vibrato_rate,
 		vibrato_depth,
+		buffer_index,
 		//These do not have param structs
 		transpose,
 		glisson_st,
@@ -68,6 +69,7 @@ namespace Grainflow
 		float envelopePosition;
 		float direction;
 		int density;
+		int buffer_index;
 	};
 
 	/// <summary>

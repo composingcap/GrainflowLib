@@ -26,8 +26,6 @@ namespace Grainflow
 	template <typename T, size_t Blocksize, typename SigType = double>
 	class gf_grain
 	{
-		static_assert(std::atomic<bool>::is_always_lock_free, "Atomic<bool> must be lock free");
-
 	private:
 		static constexpr SigType Grainclock_Thresh = 1e-7;
 		bool reset_ = false;
@@ -47,7 +45,6 @@ namespace Grainflow
 		bool enabled_internal_ = false;
 		bool window_changed_;
 		size_t stream_ = 0;
-
 
 		std::atomic<bool> param_update_busy_;
 		gf_param delay_;
@@ -69,13 +66,14 @@ namespace Grainflow
 		gf_param density_;
 		gf_param vibrato_rate_;
 		gf_param vibrato_depth_;
+		gf_param buffer_index_;
 
-		T* buffer_ref_ = nullptr;
-		T* envelope_ref_ = nullptr;
-		T* delay_buf_ref_ = nullptr;
-		T* rate_buf_ref_ = nullptr;
-		T* window_buf_ref_ = nullptr;
-		T* glisson_buffer_ = nullptr;
+		std::vector<T *> buffer_ref_collection_;
+		T *envelope_ref_ = nullptr;
+		T *delay_buf_ref_ = nullptr;
+		T *rate_buf_ref_ = nullptr;
+		T *window_buf_ref_ = nullptr;
+		T *glisson_buffer_ = nullptr;
 
 	public:
 		int buffer_samplerate = 48000;
@@ -90,7 +88,7 @@ namespace Grainflow
 		gf_buffer_info buffer_info;
 
 		gf_grain() : value_table_{}, sample_id_temp_{}, density_temp_{}, amp_temp_{}, temp_sigtype_{}, glisson_temp_{},
-		             reset_pending_(false)
+					 reset_pending_(false)
 		{
 			vibrato_phasor_ = std::make_unique<phasor<SigType, Blocksize>>(0, system_samplerate);
 
@@ -113,7 +111,6 @@ namespace Grainflow
 
 		~gf_grain()
 		{
-			delete buffer_ref_;
 			delete envelope_ref_;
 			delete delay_buf_ref_;
 			delete rate_buf_ref_;
@@ -124,8 +121,8 @@ namespace Grainflow
 	private:
 		/// @brief Returns a handle to a given grainflow parameter
 		/// @param param_name the parameter name to get the a pointer to
-		/// @return 
-		inline gf_param* param_get_handle(const gf_param_name param_name)
+		/// @return
+		inline gf_param *param_get_handle(const gf_param_name param_name)
 		{
 			switch (param_name)
 			{
@@ -167,7 +164,8 @@ namespace Grainflow
 				return &vibrato_rate_;
 			case (gf_param_name::vibrato_depth):
 				return &vibrato_depth_;
-
+			case (gf_param_name::buffer_index):
+				return &buffer_index_;
 			default:
 				return nullptr;
 			}
@@ -183,21 +181,21 @@ namespace Grainflow
 
 		/// @brief Samples a grainflow parameter using its handle by setting the value using the base, offset, and random fields in the param
 		/// @param param parameter pointer
-		inline void sample_param(gf_param* param) const
+		inline void sample_param(gf_param *param) const
 		{
 			const int rng = rand();
 			param->value = abs((rng % 10000) * 0.0001f) * (param->random) + param->base + param->offset * g_;
 		}
 
-		static void sample_normalized(gf_param* param, const float range)
+		static void sample_normalized(gf_param *param, const float range)
 		{
 			const int rng = rand();
 			param->value = gf_utils::mod(
 				(abs((rng % 10000) * 0.0001f) * (param->random) + param->offset) * range + param->base, range);
 		}
 
-		inline gf_value_table* grain_reset(const SigType* __restrict grain_clock, const SigType* traversal,
-		                                   SigType* __restrict grain_state, const int size)
+		inline gf_value_table *grain_reset(const SigType *__restrict grain_clock, const SigType *traversal,
+										   SigType *__restrict grain_state, const int size, int &out_reset_position)
 		{
 			for (int i = 0; i < 2; i++)
 			{
@@ -210,38 +208,38 @@ namespace Grainflow
 				value_table_[i].envelopePosition = envelope_.value;
 				value_table_[i].direction = direction_.value;
 				value_table_[i].density = grain_enabled_ && !window_changed_;
+				value_table_[i].buffer_index = buffer_index_.value;
 			}
 
-			bool grain_reset = (last_grain_clock_ > grain_clock[0] && grain_clock[0] >= Grainclock_Thresh) || (
-				last_grain_clock_ < Grainclock_Thresh && grain_clock[0] > Grainclock_Thresh);
+			bool grain_reset = (last_grain_clock_ > grain_clock[0] && grain_clock[0] >= Grainclock_Thresh) || (last_grain_clock_ < Grainclock_Thresh && grain_clock[0] > Grainclock_Thresh);
 			grain_state[0] = !grain_reset && grain_clock[0] >= Grainclock_Thresh;
 			int reset_position = 0;
 			for (int i = 1; i < size; i++)
 			{
 				const bool zero_cross = (grain_clock[i - 1] > grain_clock[i] && grain_clock[i] >= Grainclock_Thresh) ||
-				(grain_clock[i - 1] <=
-					Grainclock_Thresh &&
-					grain_clock[i] > Grainclock_Thresh);
+										(grain_clock[i - 1] <=
+											 Grainclock_Thresh &&
+										 grain_clock[i] > Grainclock_Thresh);
 				grain_state[i] = !zero_cross && grain_clock[i] >= Grainclock_Thresh;
 				reset_position = reset_position * !(grain_reset && zero_cross) + i * (grain_reset && zero_cross);
 				grain_reset = grain_reset || zero_cross;
 			}
 			const int enabled_mask = enabled_internal_ ? 1 : 0;
+			out_reset_position = reset_position;
 
 			last_grain_clock_ = grain_clock[size - 1] * enabled_mask + (1 - enabled_mask) * 0.001;
 			if (!grain_reset)
 				return value_table_;
 
 			if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::delay_buffer),
-			                                       param_get_handle(gf_param_name::delay), g_))
+												   param_get_handle(gf_param_name::delay), g_))
 				sample_param(
 					gf_param_name::delay);
-			source_sample = ((traversal[reset_position]) * buffer_info.buffer_frames - (delay_.value * 0.001f *
-				buffer_samplerate) - 1);
+			source_sample = ((traversal[reset_position]) * buffer_info.buffer_frames - (delay_.value * 0.001f * buffer_samplerate) - 1);
 			source_sample = gf_utils::mod<SigType>(source_sample, buffer_info.buffer_frames);
 			if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::rate_buffer),
-			                                       param_get_handle(gf_param_name::rate),
-			                                       g_))
+												   param_get_handle(gf_param_name::rate),
+												   g_))
 				sample_param(gf_param_name::rate);
 
 			const auto last_window = window_.value;
@@ -249,7 +247,7 @@ namespace Grainflow
 			if (!window_changed_)
 			{
 				if (!buffer_reader.sample_param_buffer(get_buffer(gf_buffers::window_buffer),
-				                                       param_get_handle(gf_param_name::window), g_))
+													   param_get_handle(gf_param_name::window), g_))
 					sample_param(
 						gf_param_name::window);
 			}
@@ -268,6 +266,8 @@ namespace Grainflow
 			sample_param(&glisson_position_);
 			sample_param(&vibrato_rate_);
 			sample_param(&vibrato_depth_);
+			sample_param(&buffer_index_);
+			buffer_index_.value = static_cast<int>(std::round(buffer_index_.value)) % buffer_ref_collection_.size();
 			sample_normalized(&channel_, buffer_info.n_channels);
 			sample_density();
 			sample_direction();
@@ -282,6 +282,7 @@ namespace Grainflow
 			value_table_[i].envelopePosition = envelope_.value;
 			value_table_[i].direction = direction_.value;
 			value_table_[i].density = !window_changed_ && grain_enabled_;
+			value_table_[i].buffer_index = buffer_index_.value;
 
 			enabled_internal_ = enabled;
 
@@ -293,9 +294,9 @@ namespace Grainflow
 			grain_enabled_ = density_.base > (rand() % 10000) * 0.0001f;
 		}
 
-		static inline void expand_value_table(const gf_value_table* __restrict value_frames,
-		                                      const SigType* __restrict grain_state, float* __restrict amplitudes,
-		                                      float* __restrict densities, const int size)
+		static inline void expand_value_table(const gf_value_table *__restrict value_frames,
+											  const SigType *__restrict grain_state, float *__restrict amplitudes,
+											  float *__restrict densities, const int size)
 		{
 			for (int j = 0; j < size; j++)
 			{
@@ -304,9 +305,9 @@ namespace Grainflow
 			}
 		}
 
-		static inline void process_grain_clock(const SigType* __restrict grain_clock,
-		                                       SigType* __restrict grain_progress,
-		                                       const float window_val, const float window_portion, const int size)
+		static inline void process_grain_clock(const SigType *__restrict grain_clock,
+											   SigType *__restrict grain_progress,
+											   const float window_val, const float window_portion, const int size)
 		{
 			for (int j = 0; j < size; j++)
 			{
@@ -321,17 +322,17 @@ namespace Grainflow
 			}
 		}
 
-		inline void output_block(const SigType* __restrict sample_ids, const float* __restrict amplitudes,
-		                         const float* __restrict densities, const float one_over_buffer_frames,
-		                         const int stream, const SigType* input_amp,
-		                         SigType* __restrict grain_playhead, SigType* __restrict grain_amp,
-		                         SigType* __restrict grain_envelope,
-		                         SigType* __restrict grain_output, SigType* __restrict grain_stream_channel,
-		                         SigType* __restrict grain_buffer_channel, const int size) const
+		inline void output_block(const SigType *__restrict sample_ids, const float *__restrict amplitudes,
+								 const float *__restrict densities, const float one_over_buffer_frames,
+								 const int stream, const SigType *input_amp,
+								 SigType *__restrict grain_playhead, SigType *__restrict grain_amp,
+								 SigType *__restrict grain_envelope,
+								 SigType *__restrict grain_output, SigType *__restrict grain_stream_channel,
+								 SigType *__restrict grain_buffer_channel, SigType *__restrict buffer_index, const int size) const
 		{
 			for (int j = 0; j < size; j++)
 			{
-				const float density = densities[j];;
+				const float density = densities[j];
 				const float amplitude = amplitudes[j];
 				grain_playhead[j] = sample_ids[j] * one_over_buffer_frames * density;
 				grain_amp[j] = (1 - input_amp[j]) * amplitude * density;
@@ -340,17 +341,23 @@ namespace Grainflow
 				grain_stream_channel[j] = stream + 1;
 				grain_buffer_channel[j] = static_cast<int>(channel_.value) + 1;
 			}
+			if (buffer_index != nullptr){
+				for (int j = 0; j < size; j++)
+				{
+					buffer_index[j] = buffer_index_.value;
+				}
+			}
 		}
 
-		inline void increment(const SigType* __restrict fm, const SigType* __restrict grain_clock,
-		                      SigType* __restrict sample_positions, SigType* __restrict sample_delta_temp,
-		                      SigType* __restrict glisson_temp, const int samplerate, const int size)
+		inline void increment(const SigType *__restrict fm, const SigType *__restrict grain_clock,
+							  SigType *__restrict sample_positions, SigType *__restrict sample_delta_temp,
+							  SigType *__restrict glisson_temp, const int samplerate, const int size)
 		{
 			const int fold = loop_mode_.base > 1.1f ? 1 : 0;
 			const double start_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * start_point_.value,
-			                                  static_cast<double>(buffer_info.buffer_frames));
+											  static_cast<double>(buffer_info.buffer_frames));
 			const double end_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * stop_point_.value,
-			                                static_cast<double>(buffer_info.buffer_frames));
+											static_cast<double>(buffer_info.buffer_frames));
 			if (start_tmp == end_tmp)
 				return;
 			const double start = std::min(start_tmp, end_tmp);
@@ -362,12 +369,12 @@ namespace Grainflow
 				vibrato_phasor_->set_rate(vibrato_rate_.value, samplerate);
 				vibrato_phasor_->perform(glisson_temp);
 				GfSyn::ChevyshevSin<SigType, Blocksize>(sample_delta_temp, glisson_temp);
-				auto depth = vibrato_depth_.value;
+				float depth = vibrato_depth_.value;
 				std::transform(sample_delta_temp, sample_delta_temp + Blocksize, fm, sample_delta_temp,
-				               [depth](auto a, auto fm)
-				               {
-					               return gf_utils::pitch_to_rate(fm + a * depth * 0.5f);
-				               });
+							   [depth](SigType a, float fm)
+							   {
+								   return gf_utils::pitch_to_rate(fm + a * depth * 0.5f);
+							   });
 			}
 			else
 			{
@@ -381,18 +388,16 @@ namespace Grainflow
 			{
 				for (int i = 0; i < size; i++)
 				{
-					sample_delta_temp[i] *= buffer_info.sample_rate_adjustment * rate_.value * (1 + glisson_.value *
-						grain_clock[i]) * direction_.value;
+					sample_delta_temp[i] *= buffer_info.sample_rate_adjustment * rate_.value * (1 + glisson_.value * grain_clock[i]) * direction_.value;
 				}
 			}
 			else
 			{
 				buffer_reader.sample_envelope(glisson_buffer_, false, glisson_rows_.value, glisson_position_.value,
-				                              glisson_temp, grain_clock, size);
+											  glisson_temp, grain_clock, size);
 				for (int i = 0; i < size; i++)
 				{
-					sample_delta_temp[i] *= buffer_info.sample_rate_adjustment * rate_.value * (1 + glisson_temp[i] *
-						glisson_.value * grain_clock[i]) * direction_.value;
+					sample_delta_temp[i] *= buffer_info.sample_rate_adjustment * rate_.value * (1 + glisson_temp[i] * glisson_.value * grain_clock[i]) * direction_.value;
 				}
 			}
 
@@ -403,7 +408,7 @@ namespace Grainflow
 			}
 
 			source_sample = gf_utils::mod(sample_positions[size - 1] + sample_delta_temp[size - 1],
-			                              buffer_info.buffer_frames * 2.0);
+										  buffer_info.buffer_frames * 2.0);
 
 			for (int i = 0; i < size; i++)
 			{
@@ -431,14 +436,17 @@ namespace Grainflow
 		}
 
 	public:
-		inline void process(gf_io_config<SigType>& io_config)
+		inline void process(gf_io_config<SigType> &io_config)
 		{
 			if (!enabled && !enabled_internal_)
 				return;
 
 			if (io_config.block_size < Blocksize)
 				return;
-			auto buffer_valid = buffer_reader.update_buffer_info(buffer_ref_, io_config, &buffer_info);
+
+			auto *buffer_ref = buffer_ref_collection_.empty() ? nullptr : buffer_ref_collection_[static_cast<int>(buffer_index_.value) % buffer_ref_collection_.size()];
+
+			auto buffer_valid = buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
 			use_default_envelope = !buffer_reader.update_buffer_info(envelope_ref_, io_config, nullptr);
 
 			const float window_portion = 1 / std::min(std::max(1.0f - space_.value, 0.0001f), 1.0f);
@@ -451,23 +459,23 @@ namespace Grainflow
 			{
 				const int block = i * Blocksize;
 				auto amp = amplitude_.value;
-				const SigType* grain_clock = &io_config.grain_clock[g_ % io_config.grain_clock_chans][block];
-				SigType* input_amp = &io_config.am[g_ % io_config.am_chans][block];
-				SigType* fm = &io_config.fm[g_ % io_config.fm_chans][block];
-				const SigType* traversal_phasor = &io_config.traversal_phasor[g_ % io_config.traversal_phasor_chans][
-					block];
+				const SigType *grain_clock = &io_config.grain_clock[g_ % io_config.grain_clock_chans][block];
+				SigType *input_amp = &io_config.am[g_ % io_config.am_chans][block];
+				SigType *fm = &io_config.fm[g_ % io_config.fm_chans][block];
+				const SigType *traversal_phasor = &io_config.traversal_phasor[g_ % io_config.traversal_phasor_chans][block];
 
-				SigType* grain_progress = &io_config.grain_progress[g_][block];
-				SigType* grain_state = &io_config.grain_state[g_][block];
-				SigType* grain_playhead = &io_config.grain_playhead[g_][block];
-				SigType* grain_amp = &io_config.grain_amp[g_][block];
-				SigType* grain_envelope = &io_config.grain_envelope[g_][block];
-				SigType* grain_output = &io_config.grain_output[g_][block];
-				SigType* grain_channels = &io_config.grain_buffer_channel[g_][block];
-				SigType* grain_streams = &io_config.grain_stream_channel[g_][block];
-
+				SigType *grain_progress = &io_config.grain_progress[g_][block];
+				SigType *grain_state = &io_config.grain_state[g_][block];
+				SigType *grain_playhead = &io_config.grain_playhead[g_][block];
+				SigType *grain_amp = &io_config.grain_amp[g_][block];
+				SigType *grain_envelope = &io_config.grain_envelope[g_][block];
+				SigType *grain_output = &io_config.grain_output[g_][block];
+				SigType *grain_channels = &io_config.grain_buffer_channel[g_][block];
+				SigType *grain_streams = &io_config.grain_stream_channel[g_][block];
+				SigType *buffer_index = &io_config.buffer_index[g_][block];
+				int reset_position = -1;
 				process_grain_clock(grain_clock, grain_progress, window_val, window_portion, Blocksize);
-				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize);
+				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize, reset_position);
 				if (!enabled_internal_)
 				{
 					std::fill_n(grain_state, Blocksize, 0.0);
@@ -481,20 +489,39 @@ namespace Grainflow
 					continue;
 				}
 				increment(fm, grain_progress, sample_id_temp_, temp_sigtype_, glisson_temp_, system_samplerate,
-				          Blocksize);
+						  Blocksize);
 				buffer_reader.sample_envelope(envelope_ref_, use_default_envelope, n_envelopes_.value, envelope_.value,
-				                              grain_envelope, grain_progress, Blocksize);
+											  grain_envelope, grain_progress, Blocksize);
+
 				if (sample_id_temp_[0] != sample_id_temp_[0])
 					continue; // Nan check
 				if (buffer_valid)
 				{
-					buffer_reader.sample_buffer(buffer_ref_, channel_.value, grain_output, sample_id_temp_,
-					                            Blocksize, start_point_.value, stop_point_.value);
+					buffer_reader.sample_buffer(buffer_ref, channel_.value, grain_output, sample_id_temp_,
+												Blocksize, start_point_.value, stop_point_.value);
+					if (buffer_ref_collection_.size() > 1 && value_table_[0].buffer_index != value_table_[1].buffer_index && reset_position >= 0)
+					{
+						buffer_ref = buffer_ref_collection_[value_table_[1].buffer_index%buffer_ref_collection_.size()];
+						buffer_valid = buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
+						if (buffer_valid){
+						increment(fm, grain_progress, sample_id_temp_, temp_sigtype_, glisson_temp_, system_samplerate,
+						  Blocksize);
+						buffer_reader.sample_buffer(buffer_ref, channel_.value, temp_sigtype_, sample_id_temp_,
+													Blocksize, start_point_.value, stop_point_.value);
+
+						for (int i = 0; i < Blocksize; ++i)
+						{
+							grain_output[i] *= i < reset_position;
+							temp_sigtype_[i] *= i >= reset_position;
+							grain_output[i] += temp_sigtype_[i];
+						}
+						}
+					}
 				}
 				expand_value_table(valueFrames, grain_state, amp_temp_, density_temp_, Blocksize);
 				output_block(sample_id_temp_, amp_temp_, density_temp_, buffer_info.one_over_buffer_frames, stream_,
-				             input_amp, grain_playhead, grain_amp, grain_envelope, grain_output, grain_streams,
-				             grain_channels, Blocksize);
+							 input_amp, grain_playhead, grain_amp, grain_envelope, grain_output, grain_streams,
+							 grain_channels, buffer_index, Blocksize);
 			}
 		}
 
@@ -508,7 +535,7 @@ namespace Grainflow
 		void param_set(const float value, const gf_param_name param, const gf_param_type type)
 		{
 			param_update_busy_.store(true);
-			gf_param* selected_param = param_get_handle(param);
+			gf_param *selected_param = param_get_handle(param);
 
 			switch (type)
 			{
@@ -552,12 +579,33 @@ namespace Grainflow
 			}
 		}
 
-		void set_buffer(const gf_buffers buffer_type, T* buffer)
+		void set_buffer_collection(const gf_buffers buffer_type, std::vector<T *>& buffer_collection)
+		{
+			buffer_ref_collection_ = buffer_collection;
+		}
+
+		bool get_buffer_collection(const gf_buffers buffer_type, std::vector<T*>& out_buffer_collection){
+			switch (buffer_type)
+			{
+				case (gf_buffers::buffer):
+					out_buffer_collection = buffer_ref_collection_;
+					return true;
+				case (gf_buffers::envelope):
+				case (gf_buffers::rate_buffer):
+				case (gf_buffers::delay_buffer):
+				case (gf_buffers::window_buffer):
+				case (gf_buffers::glisson_buffer):
+			}
+			return false;
+		}
+
+		void set_buffer(const gf_buffers buffer_type, T *buffer)
 		{
 			switch (buffer_type)
 			{
 			case (gf_buffers::buffer):
-				buffer_ref_ = buffer;
+				buffer_ref_collection_.resize(1);
+				buffer_ref_collection_[0] = buffer;
 				break;
 			case (gf_buffers::envelope):
 				envelope_ref_ = buffer;
@@ -577,12 +625,12 @@ namespace Grainflow
 			};
 		};
 
-		T* get_buffer(const gf_buffers buffer_type)
+		T *get_buffer(const gf_buffers buffer_type)
 		{
 			switch (buffer_type)
 			{
 			case (gf_buffers::buffer):
-				return buffer_ref_;
+				return buffer_ref_collection_.empty() ? nullptr : buffer_ref_collection_[0];
 			case (gf_buffers::envelope):
 				return envelope_ref_;
 			case (gf_buffers::rate_buffer):
@@ -602,29 +650,29 @@ namespace Grainflow
 			switch (mode)
 			{
 			case gf_stream_set_type::automatic_streams:
-				{
-					stream_ = (g_) % (nstreams);
-					break;
-				}
+			{
+				stream_ = (g_) % (nstreams);
+				break;
+			}
 			case gf_stream_set_type::per_streams:
-				{
-					stream_ = (g_) / (nstreams);
-					break;
-				}
+			{
+				stream_ = (g_) / (nstreams);
+				break;
+			}
 			case gf_stream_set_type::random_streams:
-				{
-					stream_ = rand() % (nstreams);
-					break;
-				}
+			{
+				stream_ = rand() % (nstreams);
+				break;
+			}
 			case gf_stream_set_type::manual_streams:
-				{
-					stream_ = (max_grains - 1 + nstreams) % (nstreams - 1);
-					break;
-				}
+			{
+				stream_ = (max_grains - 1 + nstreams) % (nstreams - 1);
+				break;
+			}
 			default:
-				{
-					break;
-				}
+			{
+				break;
+			}
 			}
 		}
 

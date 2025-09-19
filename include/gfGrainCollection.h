@@ -16,6 +16,7 @@ namespace Grainflow
 		int nstreams_ = 0;
 		bool auto_overlap_ = true;
 
+
 	public:
 		int samplerate = 48000;
 
@@ -68,6 +69,8 @@ namespace Grainflow
 		bool get_auto_overlap();
 		GF_RETURN_CODE set_buffer(gf_buffers type, T* ref, int target);
 		GF_RETURN_CODE set_buffer(std::string reflectionString, T* ref, int target);
+		GF_RETURN_CODE set_buffer_collection(gf_buffers type, std::vector<T*>& refs);
+
 
 #pragma endregion
 
@@ -153,10 +156,15 @@ namespace Grainflow
 	template <typename T, size_t Internalblock, typename SigType>
 	void gf_grain_collection<T, Internalblock, SigType>::process(gf_io_config<SigType>& io_config)
 	{
+		// if (buffer_swap_.load()){
+		// 	return;
+		// }
+		// processing_.store(true);
 		for (int g = 0; g < grain_count_; g++)
 		{
 			grains_.get()[g].process(io_config);
 		}
+		//processing_.store(false);
 	}
 
 	template <typename T, size_t Internalblock, typename SigType>
@@ -210,6 +218,17 @@ namespace Grainflow
 
 		return set_buffer(type, ref, target);
 	};
+	template <typename T, size_t Internalblock, typename SigType>
+	GF_RETURN_CODE gf_grain_collection<T, Internalblock, SigType>::set_buffer_collection(gf_buffers type, std::vector<T*>& refs){
+
+		for (int i = 0; i < grain_count_; ++i){
+			grains_.get()[i].set_buffer_collection(type, refs);
+		}			
+
+		return GF_RETURN_CODE::GF_SUCCESS;
+
+		
+	}
 
 	template <typename T, size_t Internalblock, typename SigType>
 	void gf_grain_collection<T, Internalblock, SigType>::param_set(int target, gf_param_name param_name,

@@ -13,6 +13,7 @@ namespace Grainflow
 		T** grain_envelope = nullptr;
 		T** grain_buffer_channel = nullptr;
 		T** grain_stream_channel = nullptr;
+		T** buffer_index = nullptr;
 
 		//Inputs
 		T** grain_clock = nullptr;
