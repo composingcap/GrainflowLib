@@ -156,15 +156,10 @@ namespace Grainflow
 	template <typename T, size_t Internalblock, typename SigType>
 	void gf_grain_collection<T, Internalblock, SigType>::process(gf_io_config<SigType>& io_config)
 	{
-		// if (buffer_swap_.load()){
-		// 	return;
-		// }
-		// processing_.store(true);
 		for (int g = 0; g < grain_count_; g++)
 		{
 			grains_.get()[g].process(io_config);
 		}
-		//processing_.store(false);
 	}
 
 	template <typename T, size_t Internalblock, typename SigType>

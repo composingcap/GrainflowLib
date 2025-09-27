@@ -330,7 +330,7 @@ namespace Grainflow
 								 SigType *__restrict grain_output, SigType *__restrict grain_stream_channel,
 								 SigType *__restrict grain_buffer_channel, SigType *__restrict buffer_index, const int size) const
 		{
-			for (int j = 0; j < size; j++)
+			for (int j = 0; j < size; ++j)
 			{
 				const float density = densities[j];
 				const float amplitude = amplitudes[j];
@@ -342,7 +342,7 @@ namespace Grainflow
 				grain_buffer_channel[j] = static_cast<int>(channel_.value) + 1;
 			}
 			if (buffer_index != nullptr){
-				for (int j = 0; j < size; j++)
+				for (int j = 0; j < size; ++j)
 				{
 					buffer_index[j] = buffer_index_.value;
 				}
@@ -454,7 +454,6 @@ namespace Grainflow
 			if (io_config.grain_clock[0] == io_config.grain_clock[1])
 				return;
 			const float window_val = window_.value;
-
 			for (int i = 0; i < io_config.block_size / Blocksize; i++)
 			{
 				const int block = i * Blocksize;
@@ -463,7 +462,7 @@ namespace Grainflow
 				SigType *input_amp = &io_config.am[g_ % io_config.am_chans][block];
 				SigType *fm = &io_config.fm[g_ % io_config.fm_chans][block];
 				const SigType *traversal_phasor = &io_config.traversal_phasor[g_ % io_config.traversal_phasor_chans][block];
-
+				
 				SigType *grain_progress = &io_config.grain_progress[g_][block];
 				SigType *grain_state = &io_config.grain_state[g_][block];
 				SigType *grain_playhead = &io_config.grain_playhead[g_][block];
@@ -472,10 +471,11 @@ namespace Grainflow
 				SigType *grain_output = &io_config.grain_output[g_][block];
 				SigType *grain_channels = &io_config.grain_buffer_channel[g_][block];
 				SigType *grain_streams = &io_config.grain_stream_channel[g_][block];
-				SigType *buffer_index = &io_config.buffer_index[g_][block];
+				SigType *buffer_index = io_config.buffer_index == nullptr ? nullptr : &io_config.buffer_index[g_][block];
 				int reset_position = -1;
 				process_grain_clock(grain_clock, grain_progress, window_val, window_portion, Blocksize);
 				auto valueFrames = grain_reset(grain_progress, traversal_phasor, grain_state, Blocksize, reset_position);
+				
 				if (!enabled_internal_)
 				{
 					std::fill_n(grain_state, Blocksize, 0.0);
