@@ -400,7 +400,7 @@ namespace Grainflow
 				direction_.value = -1;
 			else
 			{
-				if (const float random_direction = (rand() % 1000) * 0.001f; random_direction > direction_.base)
+				if (const float random_direction = (rand() % 2000) * 0.001f - 1.0f; random_direction > direction_.base)
 				{
 					direction_.value = -1;
 				}
