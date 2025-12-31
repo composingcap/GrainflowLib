@@ -1,8 +1,6 @@
 #pragma once
 #include <memory>
-#include <random>
 #include <algorithm>
-#include <numeric>
 #include <atomic>
 #include "gfParam.h"
 #include "gfUtils.h"
@@ -574,6 +572,7 @@ namespace Grainflow
 				case (gf_buffers::window_buffer):
 				case (gf_buffers::glisson_buffer):
 				default:
+					break;
 			}
 			return false;
 		}
