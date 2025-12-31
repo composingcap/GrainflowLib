@@ -64,8 +64,6 @@ namespace Grainflow
 		gf_param stop_point_;
 		gf_param channel_;
 		gf_param density_;
-		gf_param vibrato_rate_;
-		gf_param vibrato_depth_;
 		gf_param buffer_index_;
 
 		std::vector<T *> buffer_ref_collection_;
@@ -160,10 +158,6 @@ namespace Grainflow
 				return &glisson_position_;
 			case (gf_param_name::density):
 				return &density_;
-			case (gf_param_name::vibrato_rate):
-				return &vibrato_rate_;
-			case (gf_param_name::vibrato_depth):
-				return &vibrato_depth_;
 			case (gf_param_name::buffer_index):
 				return &buffer_index_;
 			default:
@@ -264,8 +258,6 @@ namespace Grainflow
 			sample_param(&start_point_);
 			sample_param(&stop_point_);
 			sample_param(&glisson_position_);
-			sample_param(&vibrato_rate_);
-			sample_param(&vibrato_depth_);
 			sample_param(&buffer_index_);
 			buffer_index_.value = static_cast<int>(std::round(buffer_index_.value)) % buffer_ref_collection_.size();
 			sample_normalized(&channel_, buffer_info.n_channels);
@@ -364,26 +356,12 @@ namespace Grainflow
 			// Need to check the order in case a user feeds us these out of order
 			const double end = std::max(start_tmp, end_tmp);
 
-			if (vibrato_rate_.value > 0.0f && vibrato_depth_.value > 0.0f)
-			{
-				vibrato_phasor_->set_rate(vibrato_rate_.value, samplerate);
-				vibrato_phasor_->perform(glisson_temp);
-				GfSyn::ChevyshevSin<SigType, Blocksize>(sample_delta_temp, glisson_temp);
-				float depth = vibrato_depth_.value;
-				std::transform(sample_delta_temp, sample_delta_temp + Blocksize, fm, sample_delta_temp,
-							   [depth](SigType a, float fm)
-							   {
-								   return gf_utils::pitch_to_rate(fm + a * depth * 0.5f);
-							   });
-			}
-			else
-			{
-				for (int i = 0; i < size; i++)
-				{
-					sample_delta_temp[i] = gf_utils::pitch_to_rate(fm[i]);
-				}
-			}
 
+			for (int i = 0; i < size; i++)
+			{
+				sample_delta_temp[i] = gf_utils::pitch_to_rate(fm[i]);
+			}
+		
 			if (glisson_.mode == gf_buffer_mode::normal && glisson_rows_.value >= 1)
 			{
 				for (int i = 0; i < size; i++)
@@ -595,6 +573,7 @@ namespace Grainflow
 				case (gf_buffers::delay_buffer):
 				case (gf_buffers::window_buffer):
 				case (gf_buffers::glisson_buffer):
+				default:
 			}
 			return false;
 		}
