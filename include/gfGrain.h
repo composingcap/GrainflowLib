@@ -1,12 +1,10 @@
 #pragma once
-#include <memory>
 #include <algorithm>
 #include <atomic>
 #include "gfParam.h"
 #include "gfUtils.h"
 #include "gfIBufferReader.h"
 #include "gfIoConfig.h"
-#include "gfSyn.h"
 
 /// <summary>
 /// Contains entries and functions that modify said entities. This is the
@@ -37,7 +35,6 @@ namespace Grainflow
 		float amp_temp_[Blocksize];
 		SigType temp_sigtype_[Blocksize];
 		SigType glisson_temp_[Blocksize];
-		std::unique_ptr<Grainflow::phasor<SigType, Blocksize>> vibrato_phasor_;
 		bool reset_pending_;
 		int g_ = 0;
 		bool enabled_internal_ = false;
@@ -86,7 +83,6 @@ namespace Grainflow
 		gf_grain() : value_table_{}, sample_id_temp_{}, density_temp_{}, amp_temp_{}, temp_sigtype_{}, glisson_temp_{},
 					 reset_pending_(false)
 		{
-			vibrato_phasor_ = std::make_unique<phasor<SigType, Blocksize>>(0, system_samplerate);
 
 			rate_.base = 1;
 			amplitude_.base = 1;
