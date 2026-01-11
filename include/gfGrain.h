@@ -334,7 +334,7 @@ namespace Grainflow
 
 		inline void increment(const SigType *__restrict fm, const SigType *__restrict grain_clock,
 							  SigType *__restrict sample_positions, SigType *__restrict sample_delta_temp,
-							  SigType *__restrict glisson_temp, const int samplerate, const int size)
+							  SigType *__restrict glisson_temp, const int size)
 		{
 			const int fold = loop_mode_.base > 1.1f ? 1 : 0;
 			const double start_tmp = std::min(static_cast<double>(buffer_info.buffer_frames) * start_point_.value,
@@ -423,10 +423,9 @@ namespace Grainflow
 			if (io_config.grain_clock[0] == io_config.grain_clock[1])
 				return;
 			const float window_val = window_.value;
-			for (int i = 0; i < io_config.block_size / Blocksize; i++)
+			for (size_t i = 0; i < io_config.block_size / Blocksize; i++)
 			{
 				const int block = i * Blocksize;
-				auto amp = amplitude_.value;
 				const SigType *grain_clock = &io_config.grain_clock[g_ % io_config.grain_clock_chans][block];
 				SigType *input_amp = &io_config.am[g_ % io_config.am_chans][block];
 				SigType *fm = &io_config.fm[g_ % io_config.fm_chans][block];
@@ -457,7 +456,7 @@ namespace Grainflow
 					std::fill_n(grain_progress, Blocksize, 0.0);
 					continue;
 				}
-				increment(fm, grain_progress, sample_id_temp_, temp_sigtype_, glisson_temp_, system_samplerate,
+				increment(fm, grain_progress, sample_id_temp_, temp_sigtype_, glisson_temp_,
 						  Blocksize);
 				buffer_reader.sample_envelope(envelope_ref_.get(), use_default_envelope, n_envelopes_.value, envelope_.value,
 											  grain_envelope, grain_progress, Blocksize);
@@ -473,17 +472,17 @@ namespace Grainflow
 						buffer_ref = buffer_ref_collection_[value_table_[1].buffer_index%buffer_ref_collection_.size()];
 						buffer_valid = buffer_reader.update_buffer_info(buffer_ref, io_config, &buffer_info);
 						if (buffer_valid){
-						increment(fm, grain_progress, sample_id_temp_, temp_sigtype_, glisson_temp_, system_samplerate,
-						  Blocksize);
-						buffer_reader.sample_buffer(buffer_ref, channel_.value, temp_sigtype_, sample_id_temp_,
-													Blocksize, start_point_.value, stop_point_.value);
+							increment(fm, grain_progress, sample_id_temp_, temp_sigtype_, glisson_temp_,
+							Blocksize);
+							buffer_reader.sample_buffer(buffer_ref, channel_.value, temp_sigtype_, sample_id_temp_,
+														Blocksize, start_point_.value, stop_point_.value);
 
-						for (int i = 0; i < Blocksize; ++i)
-						{
-							grain_output[i] *= i < reset_position;
-							temp_sigtype_[i] *= i >= reset_position;
-							grain_output[i] += temp_sigtype_[i];
-						}
+							for (int i = 0; i < static_cast<int>(Blocksize); ++i)
+							{
+								grain_output[i] *= i < reset_position;
+								temp_sigtype_[i] *= i >= reset_position;
+								grain_output[i] += temp_sigtype_[i];
+							}
 						}
 					}
 				}
@@ -550,7 +549,9 @@ namespace Grainflow
 
 		void set_buffer_collection(const gf_buffers buffer_type, std::vector<T *>& buffer_collection)
 		{
-			buffer_ref_collection_ = buffer_collection;
+			if (buffer_type == gf_buffers::buffer){
+				buffer_ref_collection_ = buffer_collection;
+			}
 		}
 
 		bool get_buffer_collection(const gf_buffers buffer_type, std::vector<T*>& out_buffer_collection){

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 namespace Grainflow
 {
 	template<typename T = double>
@@ -27,7 +28,7 @@ namespace Grainflow
 		int am_chans;
 
 		bool livemode = false;
-		int block_size = 0;
-		int samplerate = 1;
+		size_t block_size = 0;
+		size_t samplerate = 1;
 	};
 }

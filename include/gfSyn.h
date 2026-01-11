@@ -1,7 +1,6 @@
 #pragma once 
 #include "gfUtils.h"
 #include "gfEnvelopes.h"
-#include <vector>
 #ifndef M_PI
 	#define _USE_MATH_DEFINES
 	#include <cmath>
@@ -31,7 +30,6 @@ namespace Grainflow
 				for (long i = 0; i < blocks; ++i)
 				{
 					double rate = freqs[ch] * oneOverSamplerate;
-					double base = history[ch];
 					double* result = &outputs[ch][INTERNALBLOCK * i];
 					PhasorWave<double, INTERNALBLOCK>(result, rate, history[ch], 0);
 				}

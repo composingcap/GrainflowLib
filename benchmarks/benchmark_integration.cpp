@@ -20,8 +20,8 @@ template<size_t BlockSize, int NumGrains>
 static void BM_GrainCollectionWithDynamicModulation(benchmark::State& state) {
     using BufferType = gf_buffer<double>;
     constexpr int SampleRate = 48000;
-    constexpr int seconds = 1; 
-    constexpr int blocks = seconds*SampleRate/BlockSize;
+    constexpr float samples = 4096; 
+    constexpr int blocks = samples/BlockSize;
 
     // Setup buffer with 1 second of audio
     auto buffer = std::make_unique<BufferType>(SampleRate, 2, SampleRate);
@@ -123,24 +123,29 @@ static void BM_GrainCollectionWithDynamicModulation(benchmark::State& state) {
     // Benchmark loop
     for (auto _ : state) {
         for (int i = 0; i < blocks; ++i){
-        grain_phasor->perform(grain_clock.data());
-        traversal_phasor->perform(traversal.data());
-        fm_phasor->perform(fm.data());
-        am_phasor->perform(am.data());
+            grain_phasor->perform(grain_clock.data());
+            traversal_phasor->perform(traversal.data());
+            fm_phasor->perform(fm.data());
+            am_phasor->perform(am.data());
 
-        grain_collection->process(io_config);
-        benchmark::DoNotOptimize(grain_output_ptrs.data());
+            grain_collection->process(io_config);
+            benchmark::DoNotOptimize(grain_output_ptrs.data());
     }
 }
 
     state.SetItemsProcessed(state.iterations() * BlockSize * NumGrains);
 }
 
-BENCHMARK(BM_GrainCollectionWithDynamicModulation<4, 256>);
-BENCHMARK(BM_GrainCollectionWithDynamicModulation<16, 256>);
-BENCHMARK(BM_GrainCollectionWithDynamicModulation<32, 256>);
-BENCHMARK(BM_GrainCollectionWithDynamicModulation<64, 256>);
-BENCHMARK(BM_GrainCollectionWithDynamicModulation<128, 256>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<1, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<2, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<4, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<8, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<16, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<32, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<64, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<128, 64>);
+BENCHMARK(BM_GrainCollectionWithDynamicModulation<256, 64>);
+
 
 
 BENCHMARK_MAIN();

@@ -129,7 +129,7 @@ namespace Grainflow
 		}
 	};
 
-	static bool buffer_reflection(std::string reflectionString, gf_buffers& type)
+	static inline bool buffer_reflection(std::string reflectionString, gf_buffers& type)
 	{
 		if (reflectionString == "buf" || reflectionString == "buffer")
 		{
@@ -163,7 +163,7 @@ namespace Grainflow
 	}
 
 
-	static bool param_reflection(std::string param, gf_param_name& out_param_name, gf_param_type& out_param_type)
+	static inline bool param_reflection(std::string param, gf_param_name& out_param_name, gf_param_type& out_param_type)
 	{
 		//Find and remove param types 
 		out_param_type = gf_param_type::ERR;

@@ -76,10 +76,10 @@ namespace Grainflow{
 
         void get_info(gf_buffer_info* info){
             info->buffer_frames = frame_count();
-            info->one_over_buffer_frames= 1/info->buffer_frames;
+            info->one_over_buffer_frames= 1.0f/info->buffer_frames;
             info->n_channels = channel_count();
             info->samplerate = samplerate();
-            info->one_over_samplerate = 1/info->samplerate;
+            info->one_over_samplerate = 1.0f/info->samplerate;
         }
 
         void replace(std::string audio_file_path){
@@ -195,7 +195,6 @@ namespace Grainflow{
             const int frames = static_cast<int>(sample_lock.frame_count());
 			int channels = static_cast<int>(sample_lock.channel_count());
 			if (channels <= 0) return;
-			auto write_channel = channel % channels;
 			auto is_segmented = (start_sample + size) >= frames;
 
 			if (!is_segmented)
@@ -227,7 +226,6 @@ namespace Grainflow{
             const int frames = static_cast<int>(sample_lock.frame_count());
 			int channels = static_cast<int>(sample_lock.channel_count());
 			if (channels <= 0 || frames <= 0) return;
-			auto write_channel = channel % channels;
 			auto is_segmented = (start_position + size) >= frames;
 
 			if (!is_segmented)
@@ -238,7 +236,6 @@ namespace Grainflow{
 				}
 				return;
 			}
-			auto first_chunk = (start_position + size) - frames;
 			for (int i = 0; i < size; i++)
 			{
 				buffer_samples[channel][(((start_position + i) % frames))] = samples[i];

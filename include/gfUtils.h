@@ -1,8 +1,6 @@
 #pragma once
 #include  <cmath>
 #include <random>
-#pragma intrinsic(fabs)
-#pragma intrinsic(floor)
 #include "gfEnvelopes.h"
 
 namespace Grainflow
