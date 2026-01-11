@@ -1,5 +1,6 @@
 #pragma once
 #include  <cmath>
+#include <random>
 #pragma intrinsic(fabs)
 #pragma intrinsic(floor)
 #include "gfEnvelopes.h"
@@ -9,16 +10,37 @@ namespace Grainflow
 	class gf_utils
 	{
 	private:
+		// Thread-local random number generator for better performance and thread safety
+		static inline thread_local std::mt19937 rng_{std::random_device{}()};
+
+	public:
+		/// @brief Generate a random value in a uniform distribution [min, max)
+		/// For floating point types, generates in range [0, 1) by default
+		/// For integer types, generates in range [0, max) by default
+		template<typename T = float>
+		static inline T random_uniform(T min = T(0), T max = T(1))
+		{
+			if constexpr (std::is_floating_point_v<T>)
+			{
+				std::uniform_real_distribution<T> dist(min, max);
+				return dist(rng_);
+			}
+			else
+			{
+				std::uniform_int_distribution<T> dist(min, max - 1);
+				return dist(rng_);
+			}
+		}
 
 	public:
 		static inline float deviate(const float center, const float range, [[maybe_unused]] float empty = 0)
 		{
-			return center + (static_cast<float>(rand() % 10000) * 0.0001f - 0.5f) * 2 * range;
+			return center + (random_uniform<float>() - 0.5f) * 2 * range;
 		}
 
 		static inline float random_range(const float bottom, const float top, [[maybe_unused]] float empty = 0)
 		{
-			return lerp(bottom, top, rand() % 10000 * 0.0001f);
+			return lerp(bottom, top, random_uniform<float>());
 		}
 
 		static inline float lerp(const float lower, const float upper, const float position)

@@ -147,9 +147,9 @@ namespace Grainflow{
 			}
 			else if (param->mode == gf_buffer_mode::buffer_random)
 			{
-				frame = (rand() % frames);
+				frame = gf_utils::random_uniform<int>(0, frames);
 			}
-			param->value = param_buf.lookup(frame, 0) + param->random * (rand() % 10000) * 0.0001 + param->offset *
+			param->value = param_buf.lookup(frame, 0) + param->random * gf_utils::random_uniform<float>() + param->offset *
 				grain_id;
 			return true;
 		}
