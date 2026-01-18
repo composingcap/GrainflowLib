@@ -13,6 +13,11 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "Disable AudioFile examples" FORCE)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/AudioFile)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/AudioFile)
 
+# Disable SAF tests, examples, and extras
+set(SAF_BUILD_TESTS OFF CACHE BOOL "Disable SAF tests" FORCE)
+set(SAF_BUILD_EXAMPLES OFF CACHE BOOL "Disable SAF examples" FORCE)
+set(SAF_BUILD_EXTRAS OFF CACHE BOOL "Disable SAF extras" FORCE)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/Spatial_Audio_Framework)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/Spatial_Audio_Framework)
 
