@@ -3,7 +3,9 @@
 #include <array>
 #include <algorithm>
 #include <mutex>
+#include <cmath>
 #include "gfUtils.h"
+#include "gfSafVbap.h"
 
 namespace Grainflow
 {
@@ -28,6 +30,7 @@ namespace Grainflow
 		void set_speaker_position(int speakerId, std::array<float, 3>& position)
 		{
 			speakerPositionMap_[speakerId] = position;
+			vbap_speakers_dirty_ = true;
 		}
 
 		void clear_speaker_position()
@@ -37,6 +40,7 @@ namespace Grainflow
 			sourceToSpeakerGainMap_.clear();
 			dirtyMap_.clear();
 			speakerPositionMap_.clear();
+			vbap_speakers_dirty_ = true;
 		}
 
 		void clear_source_positions()
@@ -46,6 +50,15 @@ namespace Grainflow
 			sourceToSpeakerGainMap_.clear();
 			dirtyMap_.clear();
 			sourceToSpeakerGainMapLast_.clear();
+		}
+
+		void set_pan_mode(spat_pan_mode mode)
+		{
+			if (mode != pan_mode && (mode == spat_pan_mode::vbap))
+			{
+				vbap_speakers_dirty_ = true;
+			}
+			pan_mode = mode;
 		}
 
 		void recalculate_all_gains(bool clearHistory = false)
@@ -79,7 +92,78 @@ namespace Grainflow
 			speakerPositions = speakerPositionMap_;
 		}
 
+		void set_vbap_spread(float spread_deg)
+		{
+			vbap_spread_ = spread_deg;
+			saf_vbap_.set_spread(spread_deg);
+		}
+
+		float get_vbap_spread() const { return vbap_spread_; }
+
 	private:
+		// Convert Cartesian XYZ to spherical azimuth/elevation (degrees)
+		static void cartesian_to_spherical(float x, float y, float z, float& azimuth_deg, float& elevation_deg)
+		{
+			float r = std::sqrt(x * x + y * y + z * z);
+			if (r < 1e-6f)
+			{
+				azimuth_deg = 0.0f;
+				elevation_deg = 0.0f;
+				return;
+			}
+			// Azimuth: angle in XY plane from positive X axis
+			// SAF convention: 0 = front, positive = left, negative = right
+			azimuth_deg = std::atan2(x, y) * (180.0f / 3.14159265358979f);
+			// Elevation: angle from XY plane
+			elevation_deg = std::asin(z / r) * (180.0f / 3.14159265358979f);
+		}
+
+		void rebuild_vbap_speaker_layout(spat_pan_mode mode)
+		{
+			if (speakerPositionMap_.empty()) return;
+
+			// Build ordered speaker list and convert to spherical coordinates
+			vbap_speaker_order_.clear();
+			std::vector<typename gf_saf_vbap<InternalBlock, sigtype>::speaker_config> speakers;
+
+			for (const auto& [id, pos] : speakerPositionMap_)
+			{
+				vbap_speaker_order_.push_back(id);
+				float az, el;
+				cartesian_to_spherical(
+					pos[0] * dim_mask[0],
+					pos[1] * dim_mask[1],
+					pos[2] * dim_mask[2],
+					az, el
+				);
+				speakers.push_back({az, el});
+			}
+
+			if (mode == spat_pan_mode::vbap)
+			{
+				float max_el = 0;
+				float min_el = 0;
+				for (auto& speaker : speakers){
+					max_el = std::max(max_el,speaker.elevation_deg);
+					min_el = std::min(min_el, speaker.elevation_deg);
+				}
+				if (max_el - min_el < 1.0f){
+					std::vector<float> azimuths;
+					for (const auto& s : speakers)
+					{
+						azimuths.push_back(s.azimuth_deg);
+					}
+					saf_vbap_.set_speaker_layout_2d(azimuths, vbap_azimuth_resolution_);
+				}
+				else{
+					saf_vbap_.set_speaker_layout_3d(speakers, vbap_azimuth_resolution_, vbap_elevation_resolution_);
+				}
+			}
+
+
+			vbap_speakers_dirty_ = false;
+		}
+
 		void update_source_gains(int sourceId, spat_pan_mode mode)
 		{
 			if (sourcePositionMap_.find(sourceId) == sourcePositionMap_.end()) { return; }
@@ -89,7 +173,9 @@ namespace Grainflow
 				set_volume_dbap(sourceId, sourcePositionMap_, speakerPositionMap_, sourceToSpeakerGainMap_);
 				break;
 			case spat_pan_mode::vbap:
-				set_volume_vbap(sourceId, sourcePositionMap_, speakerPositionMap_, sourceToSpeakerGainMap_);
+				set_volume_vbap(sourceId, sourcePositionMap_, speakerPositionMap_, sourceToSpeakerGainMap_, mode);
+				break;
+			case spat_pan_mode::enum_count:
 				break;
 			}
 		}
@@ -144,63 +230,47 @@ namespace Grainflow
 		void set_volume_vbap(const int sourceId,
 		                     std::map<int, std::array<float, 3>>& sources,
 		                     std::map<int, std::array<float, 3>>& speakers,
-		                     std::map<int, std::map<int, float>>& gain_map
+		                     std::map<int, std::map<int, float>>& gain_map,
+		                     spat_pan_mode mode
 		)
 		{
-			if (speakers.size() <= 0) return;
-			//We need to check if the gain map exists, then create it
-			auto source_to_speaker_map = std::map<int, float>{};
-			std::map<int, float> distance_map;
-			std::array<float, 3> source_position;
-			std::array<float, 3> speaker_position;
+			if (speakers.empty()) return;
 
-			float totalDistance = 0;
-			for (int i = 0; i < source_position.size(); ++i)
+			// Rebuild SAF VBAP speaker layout if speakers changed
+			if (vbap_speakers_dirty_)
 			{
-				source_position[i] = dim_mask[i] * sources[sourceId][i];
-			}
-			for (auto& speaker : speakers)
-			{
-				for (int i = 0; i < speaker_position.size(); ++i)
-				{
-					speaker_position[i] = dim_mask[i] * speaker.second[i];
-				}
-
-				distance_map[speaker.first] = gf_utils::distance_3d(source_position, speaker_position);
-			}
-			std::vector<std::pair<int, float>> distance_vec(distance_map.begin(), distance_map.end());
-
-			std::sort(distance_vec.begin(), distance_vec.end(), [](auto& a, auto& b)
-			{
-				return a.second < b.second;
-			});
-			int count = 0;
-			for (auto& entry : distance_vec)
-			{
-				if (count >= n_speakers && n_speakers > 0) break;
-				auto& distance = entry.second;
-				//if (distance_thresh > 0 && distance > distance_thresh) { break; }
-				totalDistance += distance;
-				++count;
+				rebuild_vbap_speaker_layout(mode);
 			}
 
+			if (!saf_vbap_.is_initialized()) return;
 
-			if (totalDistance <= 0)
+			// Convert source position to spherical coordinates
+			const auto& src_pos = sources[sourceId];
+			float az, el;
+			cartesian_to_spherical(
+				src_pos[0] * dim_mask[0],
+				src_pos[1] * dim_mask[1],
+				src_pos[2] * dim_mask[2],
+				az, el
+			);
+
+			// Get gains from SAF VBAP
+			std::vector<float> gains;
+			if (!saf_vbap_.get_gains(az, el, gains))
 			{
-				std::lock_guard<std::mutex> _lock(update_gain_lock_);
-				gain_map[sourceId] = source_to_speaker_map;
 				return;
 			}
-			count = 0;
-			for (auto& entry : distance_vec)
+
+			// Map gains back to speaker IDs
+			auto source_to_speaker_map = std::map<int, float>{};
+			for (size_t i = 0; i < vbap_speaker_order_.size() && i < gains.size(); ++i)
 			{
-				if (count >= n_speakers && n_speakers > 0) break;
-				auto& id = entry.first;
-				auto& distance = entry.second;
-				if (distance_thresh > 0 && distance > distance_thresh) { break; }
-				source_to_speaker_map[id] = std::pow(1 - distance / totalDistance, exponent);
-				++count;
+				if (gains[i] > 1e-6f)
+				{
+					source_to_speaker_map[vbap_speaker_order_[i]] = gains[i];
+				}
 			}
+
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
 			gain_map[sourceId] = source_to_speaker_map;
 			dirtyMap_[sourceId] = true;
@@ -335,6 +405,14 @@ namespace Grainflow
 		std::mutex update_gain_lock_;
 		int channelCount_{0};
 		int grainCount_{0};
+
+		// SAF VBAP members
+		gf_saf_vbap<InternalBlock, sigtype> saf_vbap_;
+		std::vector<int> vbap_speaker_order_;
+		bool vbap_speakers_dirty_{true};
+		float vbap_spread_{0.0f};
+		int vbap_azimuth_resolution_{2};
+		int vbap_elevation_resolution_{2};
 
 	public:
 		float distance_thresh = 2;
