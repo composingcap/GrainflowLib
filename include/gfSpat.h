@@ -192,7 +192,6 @@ namespace Grainflow
 			std::map<int, float> distance_map;
 			std::array<float, 3> source_position;
 			std::array<float, 3> speaker_position;
-			float totalDistance = 0;
 
 			for (int i = 0; i < source_position.size(); ++i)
 			{
@@ -213,14 +212,11 @@ namespace Grainflow
 			{
 				return a.second < b.second;
 			});
-			int counter = 0;
 			for (auto& entry : distance_vec)
 			{
-				if (counter >= n_speakers && n_speakers > 0) { break; }
 				auto& distance = entry.second;
 				if (distance_thresh > 0 && distance > distance_thresh) { break; }
 				source_to_speaker_map[entry.first] = std::pow(1 - distance / distance_thresh, exponent);
-				++counter;
 			}
 			std::lock_guard<std::mutex> _lock(update_gain_lock_);
 			gain_map[sourceId] = source_to_speaker_map;
@@ -416,7 +412,6 @@ namespace Grainflow
 
 	public:
 		float distance_thresh = 2;
-		int n_speakers = 3;
 		float exponent = 1;
 		spat_pan_mode pan_mode;
 		std::array<float, 3> dim_mask{1, 1, 1};
