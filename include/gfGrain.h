@@ -376,7 +376,7 @@ namespace Grainflow
 				sample_positions[i] = sample_positions[i - 1] + sample_delta_temp[i - 1];
 			}
 
-			source_sample = gf_utils::mod(sample_positions[size - 1] + sample_delta_temp[size - 1],
+			source_sample = gf_utils::mod<SigType>(sample_positions[size - 1] + sample_delta_temp[size - 1],
 										  buffer_info.buffer_frames * 2.0);
 
 			for (int i = 0; i < size; i++)

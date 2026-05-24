@@ -150,7 +150,7 @@ namespace Grainflow
 			auto d0 = b[0] - a[0];
 			auto d1 = b[1] - a[1];
 			auto d2 = b[2] - a[2];
-			return std::sqrtf(d0 * d0 + d1 * d1 + d2 * d2);
+			return std::sqrt(d0 * d0 + d1 * d1 + d2 * d2);
 		}
 	};
 	
