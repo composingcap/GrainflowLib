@@ -1,10 +1,21 @@
 #pragma once
-#include  <cmath>
 #include <random>
 #include <array>
 #pragma intrinsic(fabs)
 #pragma intrinsic(floor)
 #include "gfEnvelopes.h"
+
+#ifndef M_PI
+	#define _USE_MATH_DEFINES
+	#include <cmath>
+#endif 
+
+#ifndef PI
+	constexpr double PI = M_PI;
+#endif
+#ifndef TWOPI
+	constexpr  double TWOPI = M_PI * 2;
+#endif
 
 namespace Grainflow
 {
